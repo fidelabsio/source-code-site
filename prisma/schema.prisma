@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum LicenseStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+
+  @@map("license_status")
+}
+
+model License {
+  id         String        @id @default(uuid())
+  // Generated inside Postgres by generate_license_key() (see migration.sql) —
+  // never assigned from application code.
+  licenseKey String        @unique @default(dbgenerated("generate_license_key()")) @map("license_key")
+  status     LicenseStatus @default(ACTIVE)
+  isRenewal  Boolean       @default(false) @map("is_renewal")
+  expiresAt  DateTime?     @map("expires_at")
+
+  orderId    BigInt  @unique @map("order_id")
+  orderGid   String  @unique @map("order_gid")
+  orderName  String  @map("order_name")
+  totalPrice String? @map("total_price")
+  currency   String?
+
+  customerId        BigInt? @map("customer_id")
+  customerEmail     String  @map("customer_email")
+  customerFirstName String? @map("customer_first_name")
+  customerLastName  String? @map("customer_last_name")
+  customerPhone     String? @map("customer_phone")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("licenses")
+}
