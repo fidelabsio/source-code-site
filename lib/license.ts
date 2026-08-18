@@ -37,9 +37,9 @@ export async function issueLicenseForOrder(order: PaidOrderInput) {
       customerLastName: order.customer.lastName ?? undefined,
       customerPhone: order.customer.phone ?? undefined,
     },
-    select: { licenseKey: true },
+    select: { licenseKey: true, createdAt: true, expiresAt: true },
   });
 
   await tagOrder(order.orderGid, [`license:${license.licenseKey}`]);
-  return license.licenseKey;
+  return license;
 }

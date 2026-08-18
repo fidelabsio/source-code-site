@@ -1,7 +1,19 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { issueLicenseForOrder } from "@/lib/license";
+import { sendLicenseEmail } from "@/lib/email";
 
 const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
+const RENEWAL_VARIANT_ID = process.env.RENEWAL_VARIANT_ID;
+
+function isRenewalOrder(order: { line_items?: { variant_id?: number }[] }) {
+  if (!RENEWAL_VARIANT_ID) return false;
+  return (order.line_items ?? []).some((item) => String(item.variant_id) === String(RENEWAL_VARIANT_ID));
+}
+
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "long", year: "numeric" }).format(date);
+}
 
 function verifyHmac(rawBody: string, hmacHeader: string | null) {
   if (!WEBHOOK_SECRET || !hmacHeader) {
@@ -31,26 +43,52 @@ export async function POST(request: NextRequest) {
 
   const order = JSON.parse(rawBody);
 
+  const customerEmail = (order.customer?.email || order.email) as string | undefined;
+  if (!customerEmail) {
+    console.error("[order paid] no customer email on order", order.admin_graphql_api_id);
+    return NextResponse.json({ received: true });
+  }
+
   const paidOrder = {
     orderId: order.id as number,
     orderGid: order.admin_graphql_api_id as string,
     orderName: order.name as string,
-    orderNumber: order.order_number as number,
-    createdAt: order.created_at as string,
-    processedAt: order.processed_at as string,
-    totalPrice: order.total_price as string,
-    subtotalPrice: order.subtotal_price as string,
-    currency: order.currency as string,
+    totalPrice: order.total_price as string | null,
+    currency: order.currency as string | null,
+    isRenewal: isRenewalOrder(order),
     customer: {
-      id: order.customer?.id as number,
-      email: order.customer?.email as string,
-      firstName: order.customer?.first_name as string,
-      lastName: order.customer?.last_name as string,
-      phone: (order.customer?.phone || order.billing_address?.phone) as string,
-    }
+      id: order.customer?.id as number | null,
+      email: customerEmail,
+      firstName: order.customer?.first_name as string | null,
+      lastName: order.customer?.last_name as string | null,
+      phone: (order.customer?.phone || order.billing_address?.phone) as string | null,
+    },
   };
 
-  console.log("[order paid]", paidOrder);
+  const license = await issueLicenseForOrder(paidOrder);
+
+  const customerName =
+    [paidOrder.customer.firstName, paidOrder.customer.lastName].filter(Boolean).join(" ") || customerEmail;
+  const purchaseDate = formatDate(license.createdAt);
+  const expiresAt = license.expiresAt ?? new Date(license.createdAt.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+  try {
+    await sendLicenseEmail({
+      to: customerEmail,
+      customerName,
+      licenseType: paidOrder.isRenewal ? "License Renewal" : "Commercial License",
+      licenseId: license.licenseKey,
+      orderNumber: paidOrder.orderName,
+      purchaseDate,
+      licenseActivatedDate: purchaseDate,
+      supportValidUntil: formatDate(expiresAt),
+      // TODO: no real signed/expiring download link exists yet — points at the
+      // support page as an interim destination until deliverable hosting is built.
+      downloadUrl: "https://fidelabs.io/support",
+    });
+  } catch (error) {
+    console.error("[order paid] license issued but email failed to send", paidOrder.orderGid, error);
+  }
 
   return NextResponse.json({ received: true });
 }

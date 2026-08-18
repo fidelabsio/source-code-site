@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import FormField from "@/components/pages/contact/FormField";
 
 const FORM_FIELDS: {
@@ -10,12 +10,12 @@ const FORM_FIELDS: {
   placeholder: string;
   fullWidth?: boolean;
   rows?: number;
+  minLength?: number;
+  maxLength?: number;
 }[] = [
-  { id: "first-name", label: "First name", type: "text", placeholder: "Jordan" },
-  { id: "last-name", label: "Last name", type: "text", placeholder: "Mensah" },
-  { id: "email", label: "Email", type: "email", placeholder: "jordan@studio.com" },
-  { id: "company", label: "Company", type: "text", placeholder: "Northline Studio" },
-  { id: "store-url", label: "Shopify store URL", type: "url", placeholder: "store.myshopify.com", fullWidth: true },
+  { id: "first-name", label: "First name", type: "text", placeholder: "Jordan", maxLength: 80 },
+  { id: "last-name", label: "Last name", type: "text", placeholder: "Mensah", maxLength: 80 },
+  { id: "email", label: "Email", type: "email", placeholder: "jordan@studio.com", maxLength: 254 },
   {
     id: "message",
     label: "Message",
@@ -23,12 +23,40 @@ const FORM_FIELDS: {
     placeholder: "What are you building, and where can we help?",
     fullWidth: true,
     rows: 5,
+    minLength: 10,
+    maxLength: 5000,
   },
 ];
 
 export default function ContactPage() {
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    setStatus("submitting");
+    setFieldErrors({});
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        if (res.status === 400 && body?.fieldErrors) {
+          setFieldErrors(body.fieldErrors);
+        }
+        throw new Error("Request failed");
+      }
+      setStatus("success");
+      form.reset();
+    } catch {
+      setStatus("error");
+    }
   }
 
   return (
@@ -52,18 +80,28 @@ export default function ContactPage() {
               <form id="fl-contact-form" noValidate onSubmit={handleSubmit}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "18px" }}>
                   {FORM_FIELDS.map((field) => (
-                    <FormField key={field.id} {...field} />
+                    <FormField key={field.id} {...field} error={fieldErrors[field.id]?.[0]} />
                   ))}
                 </div>
-                <button type="submit" className="fl-ct-scp6 fl-ct-scp4" style={{ marginTop: "26px", width: "100%", display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "999px", borderWidth: "medium", borderStyle: "none", borderColor: "currentcolor", borderImage: "none", background: "linear-gradient(135deg, rgb(3, 162, 145), rgb(47, 84, 235))", color: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14.5px", fontWeight: "600", cursor: "pointer", boxShadow: "rgba(47, 84, 235, 0.24) 0px 4px 14px", transition: "transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s, background 0.18s" }}>
+                <button type="submit" disabled={status === "submitting"} className="fl-ct-scp6 fl-ct-scp4" style={{ marginTop: "26px", width: "100%", display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px", padding: "14px 28px", borderRadius: "999px", borderWidth: "medium", borderStyle: "none", borderColor: "currentcolor", borderImage: "none", background: "linear-gradient(135deg, rgb(3, 162, 145), rgb(47, 84, 235))", color: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14.5px", fontWeight: "600", cursor: status === "submitting" ? "default" : "pointer", opacity: status === "submitting" ? 0.7 : 1, boxShadow: "rgba(47, 84, 235, 0.24) 0px 4px 14px", transition: "transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s, background 0.18s" }}>
                   <span className="sc-interp">
-                    Send Message
+                    {status === "submitting" ? "Sending…" : "Send Message"}
                   </span>
                   {" "}
                   <span>
                     →
                   </span>
                 </button>
+                {status === "success" && (
+                  <p style={{ margin: "14px 0px 0px", textAlign: "center", fontSize: "13px", lineHeight: "1.6", color: "rgb(13, 148, 136)", fontWeight: "600" }}>
+                    Thanks — your message has been sent. We&apos;ll get back to you soon.
+                  </p>
+                )}
+                {status === "error" && (
+                  <p style={{ margin: "14px 0px 0px", textAlign: "center", fontSize: "13px", lineHeight: "1.6", color: "rgb(220, 38, 38)", fontWeight: "600" }}>
+                    Something went wrong sending your message. Please try again or email us directly.
+                  </p>
+                )}
                 <p style={{ margin: "14px 0px 0px", textAlign: "center", fontSize: "12.5px", lineHeight: "1.6", color: "rgb(107, 114, 128)" }}>
                   {"By submitting this form, you agree to our "}
                   <a href="/privacy" className="fl-ct-scp7" style={{ color: "rgb(13, 148, 136)", fontWeight: "600", transition: "color 0.18s" }}>

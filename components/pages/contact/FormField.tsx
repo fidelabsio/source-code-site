@@ -5,6 +5,9 @@ export default function FormField({
   placeholder,
   fullWidth,
   rows,
+  minLength,
+  maxLength,
+  error,
 }: {
   id: string;
   label: string;
@@ -12,7 +15,12 @@ export default function FormField({
   placeholder: string;
   fullWidth?: boolean;
   rows?: number;
+  minLength?: number;
+  maxLength?: number;
+  error?: string;
 }) {
+  const borderColor = error ? "rgb(220, 38, 38)" : "rgb(229, 231, 235)";
+
   return (
     <div style={{ gridColumn: fullWidth ? "1 / -1" : "auto", display: "flex", flexDirection: "column", gap: "7px" }}>
       <label htmlFor={id} style={{ fontSize: "12.5px", fontWeight: "600", color: "rgb(55, 65, 81)", letterSpacing: "0.2px" }}>
@@ -27,9 +35,12 @@ export default function FormField({
           name={id}
           required
           rows={rows}
+          minLength={minLength}
+          maxLength={maxLength}
           placeholder={placeholder}
+          aria-invalid={Boolean(error)}
           className="fl-ct-scp5"
-          style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1px solid rgb(229, 231, 235)", background: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14px", lineHeight: "1.6", color: "rgb(13, 21, 38)", outline: "none", resize: "vertical", transition: "border-color 0.18s, box-shadow 0.18s" }}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: `1px solid ${borderColor}`, background: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14px", lineHeight: "1.6", color: "rgb(13, 21, 38)", outline: "none", resize: "vertical", transition: "border-color 0.18s, box-shadow 0.18s" }}
         />
       ) : (
         <input
@@ -37,10 +48,18 @@ export default function FormField({
           name={id}
           required
           type={type}
+          minLength={minLength}
+          maxLength={maxLength}
           placeholder={placeholder}
+          aria-invalid={Boolean(error)}
           className="fl-ct-scp5"
-          style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: "1px solid rgb(229, 231, 235)", background: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14px", color: "rgb(13, 21, 38)", outline: "none", transition: "border-color 0.18s, box-shadow 0.18s" }}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: "10px", border: `1px solid ${borderColor}`, background: "rgb(255, 255, 255)", fontFamily: "Geist, system-ui, sans-serif", fontSize: "14px", color: "rgb(13, 21, 38)", outline: "none", transition: "border-color 0.18s, box-shadow 0.18s" }}
         />
+      )}
+      {error && (
+        <span style={{ fontSize: "12px", color: "rgb(220, 38, 38)", fontWeight: "500" }}>
+          {error}
+        </span>
       )}
     </div>
   );
