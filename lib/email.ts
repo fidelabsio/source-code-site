@@ -9,6 +9,11 @@ const RESEND_LICENSE_API_KEY = process.env.RESEND_LICENSE_API_KEY;
 const RESEND_LICENSE_FROM_EMAIL = process.env.RESEND_LICENSE_FROM_EMAIL;
 const LICENSE_TEMPLATE_ID = process.env.LICENSE_TEMPLATE_ID;
 
+// Not tracked per-order anywhere yet — configurable via env so they can be
+// updated without a code change once real data exists.
+const PRODUCT_VERSION = process.env.PRODUCT_VERSION || "1.0.0";
+const PACKAGE_SIZE = process.env.PACKAGE_SIZE || "Full Source Package (.zip)";
+
 export async function sendContactEmail(fields: {
   firstName: string;
   lastName: string;
@@ -71,10 +76,11 @@ export async function sendLicenseEmail(fields: {
         customerName: fields.customerName,
         licenseType: fields.licenseType,
         licenseId: fields.licenseId,
-        orderNumber: fields.orderNumber,
+        productVersion: PRODUCT_VERSION,
         purchaseDate: fields.purchaseDate,
         licenseActivatedDate: fields.licenseActivatedDate,
         supportValidUntil: fields.supportValidUntil,
+        packageSize: PACKAGE_SIZE,
         downloadUrl: fields.downloadUrl,
       },
     },
