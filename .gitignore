@@ -8,3 +8,6 @@
 *.tsbuildinfo
 .vercel
 graphify-out/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
