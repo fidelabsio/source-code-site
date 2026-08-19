@@ -40,7 +40,7 @@ const TRUST_BADGES = ["Production Ready", "White-Label", "Easy Deployment", "Fas
 export default function Hero() {
   return (
     <section data-hero="1" style={{ position: "relative", background: "rgb(247, 252, 252)", overflow: "hidden" }}>
-      <div style={{ position: "absolute", inset: "0px", backgroundImage: "url(\"/assets/index-asset-3.png\")", backgroundSize: "cover", backgroundPosition: "center center" }} />
+      <div style={{ position: "absolute", inset: "0px", backgroundImage: "url(\"https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150875/source-code-site/index-asset-3.png\")", backgroundSize: "cover", backgroundPosition: "center center" }} />
       <div style={{ position: "relative", maxWidth: "1240px", margin: "0px auto", padding: "56px 32px 24px", display: "grid", gridTemplateColumns: "minmax(400px, 470px) minmax(0px, 1fr)", gap: "48px", alignItems: "center" }}>
         <div>
           <h1 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: "800", fontSize: "56px", lineHeight: "1.02", letterSpacing: "-2.4px", margin: "0px 0px 24px", color: "rgb(13, 21, 38)", textWrap: "balance" }}>
@@ -78,7 +78,7 @@ export default function Hero() {
           </div>
         </div>
         <div style={{ position: "relative", padding: "24px 0px 0px", animation: "7s ease-in-out 0s infinite normal none running fl-heroFloat" }}>
-          <img src="/assets/index-asset-2.png" alt="Fide Labs dashboard with three client brands rebranded from one config file" style={{ display: "block", width: "100%", minWidth: "0px", maxWidth: "720px", height: "auto", marginLeft: "auto" }} />
+          <img src="https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150890/source-code-site/index-asset-2.png" alt="Fide Labs dashboard with three client brands rebranded from one config file" style={{ display: "block", width: "100%", minWidth: "0px", maxWidth: "720px", height: "auto", marginLeft: "auto" }} />
         </div>
       </div>
       <div style={{ position: "relative", maxWidth: "1240px", margin: "0px auto", padding: "8px 32px 40px", display: "flex", flexWrap: "wrap", gap: "52px", justifyContent: "flex-start" }}>

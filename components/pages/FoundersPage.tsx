@@ -175,7 +175,7 @@ export default function FoundersPage() {
 
   return (
     <>
-      <section data-hero="1" style={{ position: "relative", background: "url(\"/assets/founders-asset-3.png\") right top / cover no-repeat rgb(251, 252, 255)", padding: "72px 32px 56px", overflow: "hidden" }}>
+      <section data-hero="1" style={{ position: "relative", background: "url(\"https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150886/source-code-site/founders-asset-3.png\") right top / cover no-repeat rgb(251, 252, 255)", padding: "72px 32px 56px", overflow: "hidden" }}>
         <div style={{ position: "relative", maxWidth: "1240px", margin: "0px auto", display: "flex", flexWrap: "wrap", gap: "40px", alignItems: "center" }}>
           <div style={{ flex: "1 1 460px", minWidth: "340px" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "11px", padding: "11px 20px", borderRadius: "999px", background: "rgb(224, 250, 248)", color: "rgb(13, 148, 136)", fontSize: "12px", fontWeight: "600", letterSpacing: "0.4px", marginBottom: "28px" }}>
@@ -217,7 +217,7 @@ export default function FoundersPage() {
             </div>
           </div>
           <div style={{ flex: "1 1 480px", minWidth: "320px", display: "flex", justifyContent: "flex-end" }}>
-            <img src="/assets/founders-asset-2.png" alt="Branded quote dashboard, config file, and mobile storefront" style={{ display: "block", width: "100%", maxWidth: "660px", height: "auto" }} />
+            <img src="https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150897/source-code-site/founders-asset-2.png" alt="Branded quote dashboard, config file, and mobile storefront" style={{ display: "block", width: "100%", maxWidth: "660px", height: "auto" }} />
           </div>
         </div>
       </section>

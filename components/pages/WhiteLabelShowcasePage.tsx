@@ -19,7 +19,7 @@ const BRAND_BUTTONS = [
 const COMPARE_TABS = [
   {
     label: "Application Branding",
-    shotSrc: "/assets/application-branding.png",
+    shotSrc: "https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150883/source-code-site/application-branding.png",
     icon: (
       <>
         <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8Z" />
@@ -31,7 +31,7 @@ const COMPARE_TABS = [
   },
   {
     label: "Merchant Dashboard",
-    shotSrc: "/assets/merchant-dashboard.png",
+    shotSrc: "https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150878/source-code-site/merchant-dashboard.png",
     icon: (
       <>
         <path d="M3 3v18h18" />
@@ -41,7 +41,7 @@ const COMPARE_TABS = [
   },
   {
     label: "Email Templates",
-    shotSrc: "/assets/email-templatess.png",
+    shotSrc: "https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150881/source-code-site/email-templatess.png",
     icon: (
       <>
         <path d="M22 7 13.03 12.7a2 2 0 0 1-2.06 0L2 7" />

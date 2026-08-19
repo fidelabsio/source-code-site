@@ -288,7 +288,7 @@ export default function AboutPage() {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "32px 56px" }}>
             <div style={{ flex: "1 1 30%", minWidth: "280px" }}>
-              <img src="/assets/about-asset-2.png" alt="FIDE dashboard alongside its theme configuration file" style={{ display: "block", width: "100%", height: "auto", margin: "0px 0px 22px" }} />
+              <img src="https://res.cloudinary.com/dgjd6jpof/image/upload/f_auto,q_auto/v1787150904/source-code-site/about-asset-2.png" alt="FIDE dashboard alongside its theme configuration file" style={{ display: "block", width: "100%", height: "auto", margin: "0px 0px 22px" }} />
               <p style={{ fontSize: "15px", lineHeight: "1.75", color: "rgb(107, 114, 128)", margin: "0px" }}>
                 Every B2B Shopify team faces the same challenges—building complex quote workflows from scratch. FIDE Labs exists to eliminate that repetitive effort with production-ready, white-label source code that helps businesses launch faster.
               </p>

@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { issueLicenseForOrder } from "@/lib/license";
 import { sendLicenseEmail } from "@/lib/email";
+import { buildLicensedPackage } from "@/lib/packageDelivery";
 import { prisma } from "@/lib/prima";
 
 const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
@@ -106,31 +107,42 @@ export async function POST(request: NextRequest) {
   if (claimed.count === 0) {
     console.log("[order paid] license email already sent, skipping", { orderGid: paidOrder.orderGid });
   } else {
+    const licenseType = paidOrder.isRenewal ? "License Renewal" : "Commercial License";
+
     try {
+      const { buffer, filename } = buildLicensedPackage({
+        licenseKey: license.licenseKey,
+        licenseType,
+        customerName,
+        customerEmail,
+        orderNumber: paidOrder.orderName,
+        purchaseDate,
+        supportValidUntil: formatDate(expiresAt),
+      });
+      console.log("[order paid] package built", { orderGid: paidOrder.orderGid, filename, bytes: buffer.length });
+
       await sendLicenseEmail({
         to: customerEmail,
         customerName,
-        licenseType: paidOrder.isRenewal ? "License Renewal" : "Commercial License",
+        licenseType,
         licenseId: license.licenseKey,
         orderNumber: paidOrder.orderName,
         purchaseDate,
         licenseActivatedDate: purchaseDate,
         supportValidUntil: formatDate(expiresAt),
-        // TODO: no real signed/expiring download link exists yet — points at the
-        // support page as an interim destination until deliverable hosting is built.
-        downloadUrl: "https://fidelabs.io/support",
+        attachment: { filename, content: buffer },
       });
       console.log("[order paid] license email sent", { orderGid: paidOrder.orderGid, to: customerEmail });
     } catch (error) {
-      console.error("[order paid] license issued but email failed to send", paidOrder.orderGid, error);
-      // release the claim so the next redelivery retries the send
+      console.error("[order paid] license issued but package/email failed", paidOrder.orderGid, error);
+      // release the claim so the next redelivery retries packaging + sending
       await prisma.license.updateMany({
         where: { orderGid: paidOrder.orderGid },
         data: { emailSentAt: null },
       });
-      // non-2xx so Shopify redelivers orders/paid and retries the email —
-      // otherwise the license is issued with no email ever sent to the buyer
-      return NextResponse.json({ error: "Failed to send license email." }, { status: 500 });
+      // non-2xx so Shopify redelivers orders/paid and retries — otherwise the
+      // license is issued with no package/email ever sent to the buyer
+      return NextResponse.json({ error: "Failed to build package or send license email." }, { status: 500 });
     }
   }
 

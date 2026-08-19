@@ -67,7 +67,7 @@ export interface SourceCodeDeliveryEmailProps {
   purchaseDate: string;
   licenseActivatedDate: string;
   supportValidUntil: string;
-  downloadUrl: string;
+  packageFilename: string;
   productVersion: string;
   packageSize: string;
   /** Absolute base URL for public/email-assets, no trailing slash. */
@@ -101,7 +101,7 @@ export const SourceCodeDeliveryEmail = ({
   purchaseDate,
   licenseActivatedDate,
   supportValidUntil,
-  downloadUrl,
+  packageFilename,
   productVersion,
   packageSize,
   assetBaseUrl = DEFAULT_ASSET_BASE_URL,
@@ -340,11 +340,11 @@ export const SourceCodeDeliveryEmail = ({
                     />
 
                     <Heading as="h2" style={{ margin: 0, fontFamily: DISPLAY_STACK, fontSize: "20px", fontWeight: 700, lineHeight: "26px", color: WHITE }}>
-                      Get Your Product Package
+                      Your Product Package Is Attached
                     </Heading>
 
                     <Text style={{ margin: "12px 0 0", fontFamily: FONT_STACK, fontSize: "14px", fontWeight: 400, lineHeight: "20px", color: BLUE_200 }}>
-                      Our support team will follow up with everything you need to access your package.
+                      Download the ZIP file attached to this email to get started.
                     </Text>
 
                     <Text style={{ margin: "20px 0 10px", fontFamily: FONT_STACK, fontSize: "13px", fontWeight: 600, lineHeight: "18px", color: WHITE }}>
@@ -389,10 +389,7 @@ export const SourceCodeDeliveryEmail = ({
                       <tbody>
                         <tr>
                           <td {...bg(GREEN_SOLID)} style={{ backgroundColor: GREEN_SOLID, borderRadius: "7px", padding: "13px 26px" }}>
-                            <Link
-                              href={downloadUrl}
-                              style={{ display: "inline-block", fontFamily: FONT_STACK, fontSize: "15px", fontWeight: 600, lineHeight: "16px", color: WHITE, textDecoration: "none" }}
-                            >
+                            <span style={{ display: "inline-block", fontFamily: FONT_STACK, fontSize: "15px", fontWeight: 600, lineHeight: "16px", color: WHITE }}>
                               <Img
                                 src={asset("icon-download-white.png")}
                                 alt=""
@@ -400,16 +397,16 @@ export const SourceCodeDeliveryEmail = ({
                                 height="16"
                                 style={{ display: "inline-block", verticalAlign: "middle", border: 0, marginRight: "9px" }}
                               />
-                              <span style={{ verticalAlign: "middle", color: WHITE }}>Download </span>
-                            </Link>
+                              <span style={{ verticalAlign: "middle", color: WHITE }}>{packageFilename}</span>
+                            </span>
                           </td>
                         </tr>
                       </tbody>
                     </table>
 
                     <Text style={{ margin: "14px 0 0", fontFamily: FONT_STACK, fontSize: "12px", fontWeight: 400, lineHeight: "17px", color: BLUE_200 }}>
-                      <span style={{ fontWeight: 600 }}>Note:</span> Our support team typically follows up within 1 business day with
-                      everything you need to access your package.
+                      <span style={{ fontWeight: 600 }}>Note:</span> If you don&apos;t see the attachment, check your spam folder or
+                      contact support@fidelabs.io.
                     </Text>
                   </td>
                 </tr>

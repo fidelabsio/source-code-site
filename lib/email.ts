@@ -62,7 +62,7 @@ export async function sendLicenseEmail(fields: {
   purchaseDate: string;
   licenseActivatedDate: string;
   supportValidUntil: string;
-  downloadUrl: string;
+  attachment: { filename: string; content: Buffer };
 }) {
   if (!RESEND_LICENSE_API_KEY || !RESEND_LICENSE_FROM_EMAIL) {
     throw new Error("Resend is not configured. Set RESEND_LICENSE_API_KEY and RESEND_LICENSE_FROM_EMAIL.");
@@ -77,7 +77,7 @@ export async function sendLicenseEmail(fields: {
     purchaseDate: fields.purchaseDate,
     licenseActivatedDate: fields.licenseActivatedDate,
     supportValidUntil: fields.supportValidUntil,
-    downloadUrl: fields.downloadUrl,
+    packageFilename: fields.attachment.filename,
     productVersion: PRODUCT_VERSION,
     packageSize: PACKAGE_SIZE,
     assetBaseUrl: EMAIL_ASSET_BASE_URL,
@@ -90,6 +90,7 @@ export async function sendLicenseEmail(fields: {
     from: RESEND_LICENSE_FROM_EMAIL,
     to: [fields.to],
     subject: `Your Fide Labs ${fields.licenseType} — Order ${fields.orderNumber}`,
+    attachments: [{ filename: fields.attachment.filename, content: fields.attachment.content }],
   });
 
   if (error) {

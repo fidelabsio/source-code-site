@@ -6,7 +6,7 @@ const FEATURES = [
   {
     title: "Hide Price",
     description: "Hide prices per product, collection, or customer tag.",
-    videoSrc: "/assets/gif.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150906/source-code-site/gif.mp4",
     icon: (
       <>
         <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
@@ -19,7 +19,7 @@ const FEATURES = [
   {
     title: "Quote Request",
     description: "Custom quote forms merchants can drop into any theme.",
-    videoSrc: "/assets/quote-request.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150896/source-code-site/quote-request.mp4",
     icon: (
       <>
         <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
@@ -32,7 +32,7 @@ const FEATURES = [
   {
     title: "Quote Dashboard",
     description: "Track, filter, and action every quote in one place.",
-    videoSrc: "/assets/dashboard.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150901/source-code-site/dashboard.mp4",
     icon: (
       <>
         <path d="M3 3v18h18" />
@@ -45,7 +45,7 @@ const FEATURES = [
   {
     title: "White Label",
     description: "Full rebrand from a single config — logo, colours, copy.",
-    videoSrc: "/assets/white-label.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150888/source-code-site/white-label.mp4",
     icon: (
       <>
         <path d="M20 7h-4V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
@@ -57,7 +57,7 @@ const FEATURES = [
   {
     title: "Draft Order",
     description: "Turn any accepted quote into a Shopify draft order.",
-    videoSrc: "/assets/draft-order.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150903/source-code-site/draft-order.mp4",
     icon: (
       <>
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
@@ -69,7 +69,7 @@ const FEATURES = [
   {
     title: "Email Notifications",
     description: "Branded transactional emails for every quote event.",
-    videoSrc: "/assets/email.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150894/source-code-site/email.mp4",
     icon: (
       <>
         <path d="M22 6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2Z" />
@@ -80,7 +80,7 @@ const FEATURES = [
   {
     title: "Documentation",
     description: "In-app help centre content ready for your customers.",
-    videoSrc: "/assets/doc.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150891/source-code-site/doc.mp4",
     icon: (
       <>
         <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
@@ -92,7 +92,7 @@ const FEATURES = [
   {
     title: "Theme Extension",
     description: "Native theme blocks — no Liquid edits required.",
-    videoSrc: "/assets/theme.mp4",
+    videoSrc: "https://res.cloudinary.com/dgjd6jpof/video/upload/f_auto,q_auto/v1787150899/source-code-site/theme.mp4",
     icon: (
       <>
         <path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z" />
