@@ -1,6 +1,7 @@
 import { Resend } from "resend";
-import fs from "fs";
-import path from "path";
+import { render } from "@react-email/render";
+import * as React from "react";
+import { SourceCodeDeliveryEmail } from "@/emails/SourceCodeDeliveryEmail";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TEMPLATE_ID = process.env.CONTACT_TEMPLATE_ID;
@@ -9,24 +10,12 @@ const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL;
 
 const RESEND_LICENSE_API_KEY = process.env.RESEND_LICENSE_API_KEY;
 const RESEND_LICENSE_FROM_EMAIL = process.env.RESEND_LICENSE_FROM_EMAIL;
+const EMAIL_ASSET_BASE_URL = process.env.EMAIL_ASSET_BASE_URL || "https://fidelabs.io/email-assets";
 
 // Not tracked per-order anywhere yet — configurable via env so they can be
 // updated without a code change once real data exists.
 const PRODUCT_VERSION = process.env.PRODUCT_VERSION || "1.0.0";
 const PACKAGE_SIZE = process.env.PACKAGE_SIZE || "Full Source Package (.zip)";
-
-const LICENSE_TEMPLATE_PATH = path.join(process.cwd(), "email-templates", "fide-source-code-delivery.html");
-
-// Renders the template ourselves instead of using a Resend-hosted Template —
-// this guarantees the exact HTML we've tested is what gets sent, with no
-// reformatting from Resend's own template importer.
-function renderLicenseTemplate(variables: Record<string, string>) {
-  let html = fs.readFileSync(LICENSE_TEMPLATE_PATH, "utf8");
-  for (const [key, value] of Object.entries(variables)) {
-    html = html.replaceAll(`{{{${key}}}}`, value);
-  }
-  return html;
-}
 
 export async function sendContactEmail(fields: {
   firstName: string;
@@ -81,17 +70,20 @@ export async function sendLicenseEmail(fields: {
 
   const resend = new Resend(RESEND_LICENSE_API_KEY);
 
-  const html = renderLicenseTemplate({
+  const element = React.createElement(SourceCodeDeliveryEmail, {
     customerName: fields.customerName,
     licenseType: fields.licenseType,
     licenseId: fields.licenseId,
-    productVersion: PRODUCT_VERSION,
     purchaseDate: fields.purchaseDate,
     licenseActivatedDate: fields.licenseActivatedDate,
     supportValidUntil: fields.supportValidUntil,
-    packageSize: PACKAGE_SIZE,
     downloadUrl: fields.downloadUrl,
+    productVersion: PRODUCT_VERSION,
+    packageSize: PACKAGE_SIZE,
+    assetBaseUrl: EMAIL_ASSET_BASE_URL,
   });
+
+  const html = await render(element);
 
   const { error } = await resend.emails.send({
     html,

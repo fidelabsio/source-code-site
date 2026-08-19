@@ -33,12 +33,13 @@ Copy `.env.example` to `.env.local` and fill in:
 
 ### Local dev tunnel (fixed URL)
 
-Shopify webhooks need a stable public HTTPS URL, so local dev is exposed through a named Cloudflare Tunnel instead of a random `trycloudflare.com` URL that changes every run:
+Shopify webhooks need a stable public HTTPS URL, so local dev is exposed through a named Cloudflare Tunnel instead of a random `trycloudflare.com` URL that changes every run. `npm run dev` (or `bun dev`) now starts both `next dev` and the tunnel together via `concurrently`:
 
 ```
-npm run dev                                   # localhost:3000
-cloudflared tunnel --config cloudflared.yml run   # https://dev.request-quote.online
+npm run dev   # runs next dev (localhost:3000) + cloudflared tunnel (https://dev.request-quote.online) together
 ```
+
+Run `npm run dev:next` instead if you only want the Next.js server without the tunnel.
 
 `cloudflared.yml` reuses the existing `shopify-dev` named tunnel (credentials at `~/.cloudflared/9f4036c8-fc72-499a-9182-33d5d5c008a5.json`) and routes `dev.request-quote.online` → `localhost:3000`. That same tunnel/hostname is also used by the `merchant-full-stack` project — only run one of them at a time, since a single named tunnel can only forward to one local service.
 

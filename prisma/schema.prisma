@@ -26,6 +26,7 @@ model License {
   status     LicenseStatus @default(ACTIVE)
   isRenewal  Boolean       @default(false) @map("is_renewal")
   expiresAt  DateTime?     @map("expires_at")
+  emailSentAt DateTime?    @map("email_sent_at")
 
   orderId    BigInt  @unique @map("order_id")
   orderGid   String  @unique @map("order_gid")
