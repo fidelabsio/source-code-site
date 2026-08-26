@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -n next,tunnel -c blue,yellow \"next dev\" \"cloudflared tunnel --config cloudflared.yml run\"",
     "dev:next": "next dev",
+    "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
