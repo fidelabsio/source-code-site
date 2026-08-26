@@ -125,6 +125,13 @@ export async function POST(request: NextRequest) {
     data: { emailSentAt: new Date() },
   });
 
+  if (claimed.count === 0) {
+    console.log("[order paid] email already sent (or in flight) for this order, skipping", {
+      orderGid: paidOrder.orderGid,
+    });
+    return NextResponse.json({ received: true });
+  }
+
     const licenseType = paidOrder.isRenewal ? "License Renewal" : "Commercial License";
 
     try {
