@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-
-type SidebarLink = {
-  label: string;
-  active?: boolean;
-};
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { SidebarLink } from "./sidebarConfig";
 
 export default function DocSidebarCategory({
   title,
@@ -15,6 +13,7 @@ export default function DocSidebarCategory({
   links: SidebarLink[];
 }) {
   const [open, setOpen] = useState(true);
+  const pathname = usePathname();
 
   return (
     <div>
@@ -53,32 +52,33 @@ export default function DocSidebarCategory({
       <div style={{ display: "grid", transition: "grid-template-rows 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.24s", gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? "1" : "0" }}>
         <div style={{ overflow: "hidden" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "1px", padding: "4px 0px 8px 10px", marginLeft: "9px", borderLeft: "1px solid rgb(229, 231, 235)" }}>
-            {links.map((link) => (
-              <button
-                key={link.label}
-                className={link.active ? "fl-dc-scp1" : "fl-dc-scp6"}
-                style={{
-                  position: "relative",
-                  textAlign: "left",
-                  padding: "7px 11px",
-                  borderRadius: "7px",
-                  borderWidth: "medium",
-                  borderStyle: "none",
-                  borderColor: "currentcolor",
-                  borderImage: "none",
-                  cursor: "pointer",
-                  fontFamily: "Geist, system-ui, sans-serif",
-                  fontSize: "12.5px",
-                  lineHeight: "1.45",
-                  transition: "background 0.18s, color 0.18s",
-                  background: link.active ? "rgb(240, 253, 250)" : "transparent",
-                  color: link.active ? "rgb(13, 148, 136)" : "rgb(107, 114, 128)",
-                  fontWeight: link.active ? "600" : "500",
-                }}
-              >
-                <span className="sc-interp">{link.label}</span>
-              </button>
-            ))}
+            {links.map((link) => {
+              const active = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={active ? "fl-dc-scp1" : "fl-dc-scp6"}
+                  style={{
+                    display: "block",
+                    position: "relative",
+                    textAlign: "left",
+                    padding: "7px 11px",
+                    borderRadius: "7px",
+                    textDecoration: "none",
+                    fontFamily: "Geist, system-ui, sans-serif",
+                    fontSize: "12.5px",
+                    lineHeight: "1.45",
+                    transition: "background 0.18s, color 0.18s",
+                    background: active ? "rgb(240, 253, 250)" : "transparent",
+                    color: active ? "rgb(13, 148, 136)" : "rgb(107, 114, 128)",
+                    fontWeight: active ? "600" : "500",
+                  }}
+                >
+                  <span className="sc-interp">{link.label}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

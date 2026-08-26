@@ -1,0 +1,283 @@
+<callout icon="🔐" color="blue_bg">
+	Every environment variable this app reads, grouped by concern. Locally, copy `.env.example` to `.env` and fill in real values. On a hosting platform (Fly.io, Railway, Heroku, etc.), set these as platform environment variables instead — never commit a real `.env` file.
+</callout>
+This guide documents every variable in `.env.example` — nothing here is invented, and nothing in `.env.example` is left out. Two categories named in this doc's scope don't map to any real variable in this codebase; both are called out explicitly in their own sections (4 and 6) rather than skipped silently.
+---
+# 1. Shopify Variables
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`SHOPIFY_API_KEY`</td>
+<td>Yes</td>
+<td>String — the Partner Dashboard app's Client ID</td>
+<td>none</td>
+<td>`SHOPIFY_API_KEY=1a2b3c4d5e6f7g8h9i0j`</td>
+</tr>
+<tr>
+<td>`SHOPIFY_API_SECRET`</td>
+<td>Yes</td>
+<td>String — the Partner Dashboard app's Client Secret</td>
+<td>"" (empty string) if unset — auth fails without a real value</td>
+<td>`SHOPIFY_API_SECRET=shpss_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`</td>
+</tr>
+<tr>
+<td>`SCOPES`</td>
+<td>Yes</td>
+<td>Comma-separated list, no spaces, of Shopify Admin API access scopes</td>
+<td>none — `.env.example` ships with a working starting value</td>
+<td>`SCOPES=write_content,write_draft_orders`</td>
+</tr>
+<tr>
+<td>`SHOPIFY_APP_URL`</td>
+<td>Yes</td>
+<td>Full HTTPS URL, no trailing slash</td>
+<td>"" (empty string) if unset</td>
+<td>`SHOPIFY_APP_URL=https://your-app.fly.dev`</td>
+</tr>
+<tr>
+<td>`SHOP_CUSTOM_DOMAIN`</td>
+<td>No</td>
+<td>Bare domain, no protocol</td>
+<td>unset — no custom domain registered</td>
+<td>`SHOP_CUSTOM_DOMAIN=shop.example.com`</td>
+</tr>
+</table>
+**Purpose:**
+- `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` — identify this app to Shopify's OAuth flow. Read directly into the `shopifyApp({...})` config in `app/core/shopify/shopify.server.js`.
+- `SCOPES` — split on commas into the array the Shopify SDK requests during OAuth install. Changing this requires the merchant to reinstall/reauthorize.
+- `SHOPIFY_APP_URL` — this app's own public base URL. Used for the OAuth redirect/callback, and to build the tokenized PDF-download link emailed to customers (`quotePdfUrl()` in `pdfToken.server.js`) and the "View Quote" admin deep-link in notification emails.
+- `SHOP_CUSTOM_DOMAIN` — only needed if the embedded app is served from a domain other than the default `*.myshopify.com`/Partner Dashboard host; passed to the SDK's `customShopDomains` option.
+<callout icon="⚠️" color="yellow_bg">
+	Before deploying your own fork, run `npm run config:link` to bind your own Partner app — never ship with the original template's `SHOPIFY_API_KEY`/`client_id`.
+</callout>
+---
+# 2. Database Variables
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`DATABASE_URL`</td>
+<td>Yes</td>
+<td>PostgreSQL connection string</td>
+<td>none</td>
+<td>`DATABASE_URL=postgresql://user:password@localhost:5432/quote_request`</td>
+</tr>
+</table>
+**Purpose:** the single Prisma datasource URL (`prisma/schema.prisma`'s `datasource db { provider = "postgresql"; url = env("DATABASE_URL") }`). Used both by the running app (`app/db.server.js`'s Prisma client) and by `prisma migrate deploy`/`migrate dev`. Postgres is the only supported provider — changing `provider` in `schema.prisma` to something else is unsupported by this codebase's migrations.
+---
+# 3. SMTP Variables
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`GMAIL_USER`</td>
+<td>Conditionally — see below</td>
+<td>Gmail address</td>
+<td>none</td>
+<td>`GMAIL_USER=notifications@yourstore.com`</td>
+</tr>
+<tr>
+<td>`GMAIL_APP_PASSWORD`</td>
+<td>Conditionally — see below</td>
+<td>16-character Gmail App Password (not the account password)</td>
+<td>none</td>
+<td>`GMAIL_APP_PASSWORD=abcdabcdabcdabcd`</td>
+</tr>
+</table>
+**Purpose:** these two are the **app-wide default sender**, used only as the last of three fallback tiers in `sendEmailForShop()` (`app/lib/mailer.server.js`):
+1. A shop's own custom SMTP (host/port/user/password), if enabled — stored per-shop in the database, not an env var.
+2. A shop's chosen named provider (Google or Elastic Email), with credentials stored per-shop in the database.
+3. **This app's own Gmail transporter**, built from `GMAIL_USER`/`GMAIL_APP_PASSWORD` — used when a shop hasn't configured either of the above.
+Generate the App Password at myaccount.google.com/apppasswords — a regular Gmail account password will not work with SMTP. If neither variable is set and a shop also has no SMTP configured, sending fails with "No mail server configured" (surfaced in Settings → Email).
+---
+# 4. Storage Variables
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`CLOUDINARY_CLOUD_NAME`</td>
+<td>Yes, for file uploads</td>
+<td>String — your Cloudinary cloud name</td>
+<td>none</td>
+<td>`CLOUDINARY_CLOUD_NAME=my-cloud`</td>
+</tr>
+<tr>
+<td>`CLOUDINARY_API_KEY`</td>
+<td>Yes, for file uploads</td>
+<td>Numeric string</td>
+<td>none</td>
+<td>`CLOUDINARY_API_KEY=123456789012345`</td>
+</tr>
+<tr>
+<td>`CLOUDINARY_API_SECRET`</td>
+<td>Yes, for file uploads</td>
+<td>String</td>
+<td>none</td>
+<td>`CLOUDINARY_API_SECRET=aBcDeFgHiJkLmNoPqRsTuVwXyZ0`</td>
+</tr>
+</table>
+**Purpose:** all three configure the Cloudinary Node SDK (`app/lib/cloudinary.server.js`) used to store customer-attached files from the quote request form. Cloudinary is the **only** supported storage backend — there's no local-disk or S3 fallback, and no abstraction layer in front of it. If any of the three is missing, file-attachment uploads fail; the rest of the app (quotes without attachments) is unaffected.
+---
+# 5. Logging Variables
+<callout icon="ℹ️" color="gray_bg">
+	**There are no logging environment variables in this codebase.** No `LOG_LEVEL`, `DEBUG`, or logging-service variable (Sentry, Datadog, etc.) exists — confirmed by checking `.env.example` and searching every `process.env.*` reference in `app/`. Logging is plain `console.log`/`console.error`/`console.warn` calls scattered across ~15 files, with no configurable verbosity and no external log aggregation wired up. If you add a logging library or log level, this is the section to update.
+</callout>
+---
+# 6. Not requested in scope, but present in .env.example
+To satisfy "matches `.env.example`" exactly, every remaining variable in that file is documented here even though it falls outside the five named categories above.
+## 6.1 Security
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`ENCRYPTION_KEY`</td>
+<td>**Yes in production** — app refuses to boot without it (see below)</td>
+<td>64 hex characters (32 bytes)</td>
+<td>Dev-only fallback key when unset; no fallback in production</td>
+<td>`ENCRYPTION_KEY=9f2a...` (64 hex chars — generate with the command below)</td>
+</tr>
+</table>
+Generate one with:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+**Purpose — two consumers:**
+1. AES-256-GCM encryption key for SMTP passwords stored per-shop in the database (`app/lib/encrypt.server.js`). In production, a missing or under-64-char key throws at boot: `[SECURITY] ENCRYPTION_KEY is not set or too short`.
+2. Fallback HMAC-signing secret for the tokenized PDF-download link (`app/domain/pdf/pdfToken.server.js`), if unset there it falls back to `SHOPIFY_API_SECRET`; in production, if *neither* is set, signing throws rather than using a guessable dev secret.
+## 6.2 Local dev server ports
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`PORT`</td>
+<td>No</td>
+<td>Integer</td>
+<td>`3000`</td>
+<td>`PORT=3000`</td>
+</tr>
+<tr>
+<td>`FRONTEND_PORT`</td>
+<td>No</td>
+<td>Integer</td>
+<td>`8002`</td>
+<td>`FRONTEND_PORT=8002`</td>
+</tr>
+</table>
+**Purpose:** read in `vite.config.js` (`Number(process.env.PORT || 3000)` and `parseInt(process.env.FRONTEND_PORT) || 8002`) to pick the backend and Vite dev-server ports. Framework defaults apply if unset — leave blank unless a port conflicts with something else on your machine.
+## 6.3 E2E tests (Playwright) — only required to run npm test
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Format</td>
+<td>Default</td>
+<td>Example</td>
+</tr>
+<tr>
+<td>`TEST_SHOP_DOMAIN`</td>
+<td>Only for `npm test`</td>
+<td>Full myshopify.com domain</td>
+<td>none</td>
+<td>`TEST_SHOP_DOMAIN=my-dev-store.myshopify.com`</td>
+</tr>
+<tr>
+<td>`TEST_APP_CLIENT_ID`</td>
+<td>Only for `npm test`</td>
+<td>String — Client ID of the Partner app installed on that store</td>
+<td>none</td>
+<td>`TEST_APP_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j`</td>
+</tr>
+<tr>
+<td>`TEST_APP_HOST`</td>
+<td>Only for `npm test`</td>
+<td>Bare hostname, matching `shopify.app.toml`'s `application_url` host</td>
+<td>none</td>
+<td>`TEST_APP_HOST=your-app.fly.dev`</td>
+</tr>
+</table>
+**Purpose:** used only by the Playwright end-to-end suite (`tests/*.spec.js`) to drive the real embedded admin UI against a real dev store. Not needed to run the app itself — only to run `npm test`.
+---
+# 7. Referenced in code, intentionally absent from .env.example
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Why it's not in `.env.example`</td>
+</tr>
+<tr>
+<td>`NODE_ENV`</td>
+<td>Standard Node.js variable, set automatically by your hosting platform or `npm` script (`production`/`development`/`test`) — not something you hand-set in `.env`. Checked in `encrypt.server.js` and `pdfToken.server.js` to enforce the production `ENCRYPTION_KEY` requirements described in 6.1; has no effect in development beyond enabling those insecure dev fallbacks.</td>
+</tr>
+<tr>
+<td>`HOST`</td>
+<td>Set internally by the `shopify app dev` CLI tunnel, then consumed once in `vite.config.js` to populate `SHOPIFY_APP_URL` for that dev session and immediately deleted from `process.env`. Not meant to be hand-set in `.env`.</td>
+</tr>
+</table>
+---
+# 8. Full example .env
+```bash
+# --- Shopify ---
+SHOPIFY_API_KEY=1a2b3c4d5e6f7g8h9i0j
+SHOPIFY_API_SECRET=shpss_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+SCOPES=write_content,write_draft_orders
+SHOPIFY_APP_URL=https://your-app.fly.dev
+SHOP_CUSTOM_DOMAIN=
+
+# --- Database ---
+DATABASE_URL=postgresql://user:password@localhost:5432/quote_request
+
+# --- Security ---
+ENCRYPTION_KEY=9f2a1b7e4c8d3f6a0b5e9c2d7a4f1b8e6c3d0a7f4b1e8c5d2a9f6b3e0c7d4a1f
+
+# --- Email (default sender) ---
+GMAIL_USER=notifications@yourstore.com
+GMAIL_APP_PASSWORD=abcdabcdabcdabcd
+
+# --- Cloudinary (uploads) ---
+CLOUDINARY_CLOUD_NAME=my-cloud
+CLOUDINARY_API_KEY=123456789012345
+CLOUDINARY_API_SECRET=aBcDeFgHiJkLmNoPqRsTuVwXyZ0
+
+# --- Local dev server ports (optional) ---
+FRONTEND_PORT=8002
+PORT=3000
+
+# --- E2E tests (Playwright) — only required to run npm test ---
+TEST_SHOP_DOMAIN=my-dev-store.myshopify.com
+TEST_APP_CLIENT_ID=1a2b3c4d5e6f7g8h9i0j
+TEST_APP_HOST=your-app.fly.dev
+```
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Installation Guide** (first-time setup order), **Deployment Guide** (production hosting and platform env vars), **Brand Configuration Guide** (branding lives in `app/config/*.json`, not environment variables).
+</callout>

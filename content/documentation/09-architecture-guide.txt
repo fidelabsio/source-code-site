@@ -1,0 +1,294 @@
+Internal engineering reference. Companion to `README.md` (setup, rebranding) and the **Folder Structure Guide** (what each folder is for) — this page covers how the pieces actually talk to each other at runtime. Read the Folder Structure Guide first if you haven't; the layering in §5 assumes it.
+---
+## 1. Application Architecture
+This is a single Shopify app with two independently-loaded frontends and one backend process:
+- **Embedded admin** — a React Router SSR app rendered inside the Shopify Admin iframe (Polaris UI, App Bridge session).
+- **Storefront theme app extension** — a Liquid app-embed block plus three static JS bundles, installed into the merchant's theme and served by Shopify's asset CDN, not by this app.
+- **Backend** — one Node process (React Router's SSR server) that serves the embedded admin's routes, a small public JSON API reached through Shopify's **App Proxy**, and the app's webhook endpoints. All three share the same codebase, Prisma client, and Postgres database.
+Everything downstream is either the shop's own Shopify data (fetched live via Admin GraphQL — this app doesn't mirror products/orders into its own database) or app-owned data in Postgres (quotes, settings, per-shop config — see §4).
+```mermaid
+flowchart LR
+    subgraph shopify["Shopify Platform"]
+        AdminUI["Shopify Admin"]
+        Store["Merchant Storefront"]
+        GraphQL["Admin GraphQL API"]
+        ProxyEdge["App Proxy"]
+        WHDispatch["Webhook Dispatch"]
+    end
+
+    subgraph ext["Theme App Extension"]
+        Liquid["App Embed Block"]
+        JS["JS Bundles"]
+    end
+
+    subgraph backend["Quote Request App"]
+        SSR["Admin Routes"]
+        API["App Proxy Routes"]
+        WH["Webhook Routes"]
+    end
+
+    DB[("PostgreSQL")]
+    Cloud[("Cloudinary")]
+    Mail(("Email"))
+
+    AdminUI -->|session token| SSR
+    Store -->|renders| Liquid
+    Liquid -->|loads| JS
+    JS -->|signed request| ProxyEdge
+    ProxyEdge -->|verified shop| API
+    WHDispatch -->|signed webhook| WH
+
+    SSR --> DB
+    API --> DB
+    WH --> DB
+    SSR -->|admin API calls| GraphQL
+    API -->|upload| Cloud
+    SSR -->|send email| Mail
+    API -->|send email| Mail
+```
+**Stack:**
+<table header-row="true">
+<tr>
+<td>Layer</td>
+<td>Technology</td>
+</tr>
+<tr>
+<td>Frontend framework</td>
+<td>React 18 + React Router 7 (file-based routes, SSR)</td>
+</tr>
+<tr>
+<td>Admin UI</td>
+<td>Shopify Polaris + App Bridge React</td>
+</tr>
+<tr>
+<td>Backend runtime</td>
+<td>Node.js — same process serves admin/API/webhooks</td>
+</tr>
+<tr>
+<td>Database / ORM</td>
+<td>PostgreSQL via Prisma 6</td>
+</tr>
+<tr>
+<td>Shopify SDK</td>
+<td>`@shopify/shopify-app-react-router` (OAuth, sessions, webhooks)</td>
+</tr>
+<tr>
+<td>Storefront extension</td>
+<td>Shopify Theme App Extension (Liquid + vanilla JS, no framework)</td>
+</tr>
+<tr>
+<td>File storage</td>
+<td>Cloudinary (customer attachments)</td>
+</tr>
+<tr>
+<td>Email</td>
+<td>nodemailer — app-default Gmail transporter or a merchant's own SMTP</td>
+</tr>
+<tr>
+<td>PDF generation</td>
+<td>`@react-pdf/renderer`</td>
+</tr>
+<tr>
+<td>Build / dev</td>
+<td>Vite, Shopify CLI (`shopify app dev` / `deploy`)</td>
+</tr>
+<tr>
+<td>E2E tests</td>
+<td>Playwright, driving the real embedded admin against a dev store</td>
+</tr>
+</table>
+---
+## 2. Authentication Flow
+Three separate trust boundaries, each verified differently — this app never trusts a client-supplied `shop` value; it always comes from one of the three verification steps below.
+### 2.1 Embedded admin — OAuth
+```mermaid
+sequenceDiagram
+    participant Merchant as Merchant Browser
+    participant App as App Server
+    participant Shopify as Shopify OAuth
+    participant DB as Session Table
+
+    Merchant->>App: open the embedded app, no active session
+    App->>Shopify: redirect to OAuth consent
+    Shopify->>Merchant: show consent screen
+    Merchant->>Shopify: approve requested scopes
+    Shopify->>App: callback with an auth code
+    App->>Shopify: exchange the code for an access token
+    App->>DB: save the session
+    App->>Merchant: redirect back into the embedded app
+
+    Note over Merchant,App: Every admin request re-verifies the App Bridge session token.
+```
+`app/core/shopify/shopify.server.js` is the single SDK instance (API key/secret, scopes, `PrismaSessionStorage`) every route imports `authenticate` from. `app/domain/auth/auth.server.js` builds the login form flow on top of it — notably, a request that arrives at `/auth/login` carrying a `shop`/`host` param is *not* a fresh visitor; it's an expired embedded session, so it's redirected through `/auth` instead of shown the App Store install copy.
+### 2.2 Storefront — App Proxy signature
+```mermaid
+sequenceDiagram
+    participant Widget as Storefront Widget
+    participant Proxy as Shopify App Proxy
+    participant Route as App Proxy Route
+    participant DB as Database
+
+    Widget->>Proxy: request the quote settings or submit a quote
+    Proxy->>Route: forward the request, signed, with the shop
+    Route->>Route: verify the signature
+    Route->>DB: read or write, scoped to the verified shop
+    Route->>Proxy: JSON response
+    Proxy->>Widget: JSON response
+```
+The storefront JS never talks to this app directly — it always calls through the `/apps/<subpath>/...` App Proxy URL that Shopify rewrites and signs. `authenticate.public.appProxy()` is what turns that signature into a trusted `shop`; every proxy route (`apps.$proxySubpath.api.quote.jsx`, `.api.config.jsx`, `.api.upload.jsx`) checks it before touching the database. A request that fails verification gets `401` with no shop-scoped data ever read.
+### 2.3 Webhooks — HMAC
+```mermaid
+sequenceDiagram
+    participant Shopify
+    participant Route as Webhook Route
+
+    Shopify->>Route: deliver the webhook, signed with HMAC
+    Route->>Route: verify the signature, parse the payload
+    Route->>Route: run the matching handler
+    Route->>Shopify: acknowledge with 200 OK
+```
+Five webhook topics are registered (`shopify.app.toml`): `app/uninstalled` and `app/scopes_update` (app lifecycle) plus the three mandatory GDPR compliance topics — `customers/data_request`, `customers/redact`, `shop/redact`. All five always return `200` regardless of internal outcome; Shopify only needs delivery acknowledgement, and returning a non-200 would trigger retry-storms for failures that aren't retryable anyway (see §3.3).
+---
+## 3. Data Flow
+### 3.1 Quote submission (storefront → database → email)
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Route as App Proxy Route
+    participant Service as Quote Service
+    participant DB as Database
+    participant Mailer
+
+    Customer->>Route: submit the quote request
+    Route->>Route: verify the signature, resolve the shop
+    Route->>Service: create the quote
+    Service->>DB: re-validate the required fields
+    Note over Service: fails open on an unexpected validation error
+    Service->>DB: save the quote
+    Service->>Mailer: notify the merchant
+    Service->>Mailer: confirm with the customer
+    Service->>Route: success, with the new quote id
+    Route->>Customer: acknowledge with 200 OK
+```
+The client-side form in the theme extension validates too, but that check is bypassable (JS disabled, direct API call, a client bug) — so `createQuoteForShop()` re-validates server-side against the shop's saved Form Builder schema (`FormSchema`) and is the authoritative gate. Both emails are sent without awaiting the result; a mail failure never fails the customer's submission, and each render either the merchant's saved template (Email Template Editor) or the built-in default.
+This same function is also called from the admin's "send test quote" preview (`quoteSettings.server.js`) — same logic, different caller, `shop` verified by the admin session instead of the App Proxy signature.
+### 3.2 Quote lifecycle (merchant review → checkout)
+```mermaid
+stateDiagram-v2
+    [*] --> New
+    New --> Viewed: merchant opens the quote
+    Viewed --> Accepted: merchant accepts
+    Viewed --> Rejected: merchant rejects
+    Viewed --> Quoted: converted to a draft order
+    Accepted --> Paid: payment received
+    Accepted --> Viewed: reopened
+    Rejected --> Viewed: reopened
+```
+Accepting a quote builds a real Shopify checkout link — it creates a `draftOrder` via Admin GraphQL and falls back to a cart permalink only if that fails. A merchant can supply a custom "Checkout link" in the accept email, but `sanitizeCheckoutUrl()` only honors it when it resolves to a Shopify-owned domain or the shop's own storefront domain (Shopify App Store policy 1.1.2: buyers must always land on Shopify checkout) — otherwise it's silently dropped in favor of the auto-generated link.
+### 3.3 GDPR lifecycle
+Three compliance webhooks drive a deliberate, time-boxed data lifecycle — this is the one place customer PII flows *out* of the app without a merchant action triggering it:
+- **`app/uninstalled`** — clears the shop's `Session` row only. Business data (quotes, settings) is kept for a grace period of roughly 48 hours in case the merchant reinstalls.
+- **`customers/data_request`** — emails the merchant everything the app holds about that customer (there's no Shopify-provided callback URL for automated delivery; the merchant is the data controller and passes it on).
+- **`customers/redact`** — anonymizes (not hard-deletes) that customer's `Quote` rows: PII fields are overwritten with redacted placeholder values, but operational fields (status, productTitle, timestamps) are kept so aggregate analytics don't lose historical counts.
+- **`shop/redact`** — fires roughly 48 hours after uninstall. If no `Session` exists (meaning no reinstall happened), it permanently deletes every row for that shop across all 11 tables via `Promise.allSettled` — one table failing to delete must not abort the rest.
+---
+## 4. Database Overview
+PostgreSQL via Prisma. **There is no Shop table and no foreign keys anywhere in the schema** — every table carries its own plain `shop` string column (the shop's `.myshopify.com` domain), and that string is the only thing that ties a merchant's rows together. This is a deliberate simplicity choice for a single-purpose app, not an omission — but it means referential integrity (e.g. an orphaned Quote after a shop's config is deleted) is the application's responsibility, not the database's.
+<table header-row="true">
+<tr>
+<td>Table</td>
+<td>Purpose</td>
+<td>Notes</td>
+</tr>
+<tr>
+<td>`Session`</td>
+<td>Shopify OAuth session storage</td>
+<td>Read/written by `PrismaSessionStorage`, not app code directly</td>
+</tr>
+<tr>
+<td>`Quote`</td>
+<td>One row per customer quote request</td>
+<td>Central table — `formData` is a JSON blob (cart items + custom form fields), `quoteStatus` drives the lifecycle in §3.2</td>
+</tr>
+<tr>
+<td>`QuoteConfig`</td>
+<td>Per-shop quote-widget/hide-price behavior (targeting, button styling, form toggles)</td>
+<td>One row per shop (unique on shop)</td>
+</tr>
+<tr>
+<td>`QuoteTargetProduct` / `QuoteTargetCondition`</td>
+<td>Which products the quote button targets</td>
+<td>Explicit list or rule-based conditions</td>
+</tr>
+<tr>
+<td>`HidePriceProduct` / `HidePriceCondition`</td>
+<td>Which products have prices hidden</td>
+<td>Same explicit-list-or-conditions pattern, independent of quote targeting</td>
+</tr>
+<tr>
+<td>`FormSchema`</td>
+<td>The shop's custom quote-form field definitions</td>
+<td>One row per shop; read back by `createQuoteForShop()` for server-side required-field validation</td>
+</tr>
+<tr>
+<td>`EmailConfig`</td>
+<td>Per-shop mail provider settings</td>
+<td>`smtpPassEnc` / `apiKeyEnc` are encrypted at rest (`encrypt.server.js`), decrypted only inside `mailer.server.js` right before sending</td>
+</tr>
+<tr>
+<td>`EmailTemplate`</td>
+<td>Saved custom templates, keyed by (shop, templateType)</td>
+<td>templateType is one of notification / auto-response / accept-quote / reject-quote / pdf-quote</td>
+</tr>
+<tr>
+<td>`Settings`</td>
+<td>Legacy/simple per-shop settings (onboarding progress, plan, quota)</td>
+<td>Overlaps partially with `QuoteConfig` — both are read on the storefront settings endpoint</td>
+</tr>
+</table>
+Migrations (`prisma/migrations/`) are a mix of manually-numbered (`0001_init`, `0002_add_draft_order_name`) and Prisma's auto-generated timestamp format — historical, not a convention to replicate; an already-applied migration folder is never renamed.
+---
+## 5. Service Architecture
+`app/routes/*` files are kept thin — most just re-export a `loader`/`action` from a matching `app/domain/**/*.server.js` module. The real logic layering:
+```mermaid
+flowchart TB
+    Routes["Routes thin loader and action files"]
+    Domain["Domain Logic business rules, database, Shopify API calls"]
+    Core["Config Readers theme and text label readers"]
+    Config[("Config Files buyer-editable JSON")]
+    Lib["Integrations Cloudinary, mailer, encryption"]
+    DB[("Database")]
+
+    Routes --> Domain
+    Routes -->|page colors and copy| Core
+    Core -->|reads| Config
+    Domain --> DB
+    Domain --> Lib
+```
+Two conventions worth knowing before touching this code:
+- **`core/` never contains business logic.** It's a flat-reader layer: one `theme.server.js` / `text-labels.server.js` pair per admin page, each importing the matching `app/config/<page>/*.json` file and re-exporting typed constants. `app/core/branding.server.js` and `app/core/appProxy.server.js` are the two exceptions that aren't page-scoped (`branding.json`, `app-proxy.json` are flat). This is also the entire white-labeling surface — see README's "Rebranding a new instance" section.
+- **One domain function, multiple verified callers.** `createQuoteForShop()` (§3.1) is called from both the public App Proxy route and the admin's test-send action — it trusts `shop` completely and documents that trust in its own header comment, because *it* has no way to re-verify it; verification is each caller's job before it's invoked. This pattern (shared domain logic, caller-specific auth) repeats anywhere admin and storefront code paths converge.
+**Build/deploy topology:** `shopify app dev` runs the Shopify CLI tunnel + Vite dev server together. Production is `react-router build` (client + SSR bundles) served by a single `react-router-serve` process — there's no separate API server; the same process answers `/app/*`, `/apps/*` (App Proxy), and `/webhooks/*`. The theme extension is a separate deployable (`shopify app deploy` pushes its static assets to Shopify's CDN) — it ships independently of the main app's release, which is why it can't import anything from `app/` at runtime (see §6's subpath-sync note).
+---
+## 6. Theme Extension Flow
+The extension is a Liquid app-embed block (`extensions/quote-request/blocks/quote-request.liquid`) plus three deferred JS files. It renders on every page template (product/collection/index/cart/page) and does three distinct jobs: hide prices/buttons before paint, render the quote request modal/widget, and submit quotes through the App Proxy.
+The mechanism worth understanding is how it avoids two failure modes — a visible price "flash" before config loads, and a fast click reaching checkout before hide-price rules apply:
+```mermaid
+flowchart TD
+    A["Page loads, inline script runs first"] --> B{"Cached config available and fresh?"}
+    B -- yes --> C["Apply cached rules immediately"]
+    B -- no --> D["Keep prices hidden by default"]
+    C --> E["Guard blocks checkout actions until config is ready or 6s pass"]
+    D --> E
+    E --> F["Load the extension's JS bundles"]
+    F --> G["Fetch live settings through the App Proxy"]
+    G --> H["Cache the response for the next page load"]
+    G --> I["Apply real settings, unhide or hide, button style, quote widget"]
+    I --> J["Guard releases"]
+    E -- bundle never loads --> K["Fail open after 6 seconds"]
+```
+A few things fall out of that diagram that aren't obvious from reading either file alone:
+- The guard is **fail-open by design**: if the deferred bundle is ever blocked (ad blocker, CDN outage, a broken deploy), the store's Add-to-Cart/Buy Now start working normally again after 6 seconds rather than staying locked forever.
+- The `localStorage` cache is what makes repeat visits flash-free; first-time visitors on a cold cache rely on the default-hidden CSS instead, which is a strictly safer (if slightly more conservative) fallback.
+- The extension is a **static bundle deployed separately** from the main app (§5), so it can't import `app/config/app-proxy.json` at runtime. `scripts/sync-app-proxy-subpath.js` copies the App Proxy subpath from `shopify.app.toml` into both `app/config/app-proxy.json` (for the Node side) and directly into `quote-request-utils.js` (for the extension) on every `predev`/`prebuild`/`predeploy` — that script, not either file by hand, is the only thing that should ever change the subpath.
+- Submission itself is the flow already covered in §3.1 — the extension's `submitQRForm()` is just this flow's client-side origin.

@@ -1,0 +1,131 @@
+**FIDE Shopify Source Code Product**
+Version 1.0.0 · First Commercial Release
+# 1. Release Overview
+We are pleased to announce the first commercial release, v1.0.0, of the FIDE Shopify Source Code Product.
+This release delivers a production-ready, white-label Shopify application that enables merchants to replace product prices with quote requests, manage customer quotations, and customize the application under their own brand.
+In addition to the complete source code, this release includes comprehensive documentation, deployment guides, licensing documentation, and technical resources to help customers successfully install, configure, customize, and deploy the application.
+# 2. What's Included
+This release includes the following deliverables:
+- Complete production-ready source code
+- White-label configuration system
+- Commercial License Agreement
+- Buyer Onboarding Guide
+- Installation Guide
+- Shopify Partner Setup Guide
+- Deployment Guide
+- Environment Variables Guide
+- Configuration Guide
+- Folder Structure Overview
+- Architecture Overview
+- Feature Documentation
+- API Documentation
+- Webhook Documentation
+- Troubleshooting Guide
+- Frequently Asked Questions (FAQ)
+- README
+- Third-Party Notices
+# 3. Key Features
+## 3.1 White-Label Architecture
+The application includes a complete white-label architecture that allows customers to customize the application without modifying the core business logic.
+Supported configuration includes:
+- Application branding
+- Colour theme
+- Labels
+- Email templates
+- Business information
+- Configurable settings
+## 3.2 Quote Management
+This release includes a complete quote management workflow. Features include:
+- Hide product price
+- Request quote button
+- Configurable quote request form
+- Merchant quote management
+- Customer quote submission
+- Email notifications
+- Quote workflow management
+## 3.3 Shopify Integration
+The application has been developed using Shopify's recommended application architecture. Included integrations:
+- Shopify Admin
+- Shopify App Authentication
+- Theme App Extension
+- App Proxy
+- Shopify Polaris
+- Shopify App Bridge
+# 4. Commercial Licensing
+This release introduces the Commercial License model. Included with every licence:
+- Perpetual commercial licence
+- One production deployment
+- Three non-production deployments
+- Twelve months of product updates
+- Twelve months of standard technical support
+- Licence ID generation
+- Customer purchase verification
+# 5. Documentation
+A complete documentation package is included to help customers deploy and customize the application. Documentation covers:
+- Installation
+- Deployment
+- Configuration
+- Branding
+- API reference
+- Webhooks
+- Licensing
+- Troubleshooting
+- Frequently asked questions
+- Buyer onboarding
+# 6. Improvements
+This release includes several improvements focused on code quality, maintainability, and customization.
+## 6.1 Codebase
+- Standardized project structure
+- Improved folder organization
+- Modular architecture
+- Refactored reusable components
+- Cleaner configuration management
+## 6.2 White-Label Configuration
+- Centralized branding configuration
+- Simplified theme customization
+- Configurable labels
+- Configurable email templates
+- Improved maintainability
+## 6.3 Documentation
+- Complete technical documentation
+- Customer onboarding documentation
+- Licensing documentation
+- Deployment documentation
+- Developer documentation
+# 7. Issues Resolved Before Release
+The following issues were addressed during development and quality assurance prior to this commercial release:
+- White-label branding inconsistencies
+- Configuration validation improvements
+- Theme configuration issues
+- Storefront CTA rendering issues
+- UI consistency improvements
+- Navigation refinements
+- Email template configuration issues
+- Quote workflow validation issues
+- Codebase organization improvements
+- White-label configuration refinements
+# 8. Compatibility
+This release is compatible with:
+- Shopify
+- Shopify Online Store 2.0
+- Shopify Theme App Extensions
+- Shopify App Proxy
+- Modern desktop browsers
+- Mobile devices
+# 9. Upgrade Information
+This is the initial commercial release (v1.0.0) of the FIDE Shopify Source Code Product.
+No upgrade steps are required.
+# 10. Breaking Changes
+There are no breaking changes in this release.
+# 11. Known Issues
+At the time of this release, no known critical issues affecting production deployment have been identified.
+Any issues identified after release will be addressed through the standard support and update process.
+# 12. Support
+This release includes:
+- 12 months of product updates
+- 12 months of standard technical support
+Customers requiring assistance should contact the official FIDE Labs support channel and provide:
+- Licence ID
+- Product version
+- Purchase email
+- Issue description

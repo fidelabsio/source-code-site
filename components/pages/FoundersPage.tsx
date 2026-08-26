@@ -1,5 +1,6 @@
 "use client";
 
+import VideoModalButton from "@/components/ui/VideoModalButton";
 import HeroFeature from "./founders/HeroFeature";
 import TrustBadge from "./founders/TrustBadge";
 import JourneyStep from "./founders/JourneyStep";
@@ -206,9 +207,14 @@ export default function FoundersPage() {
                   →
                 </span>
               </a>
-              <a href="/white-label-showcase" className="fl-fd-scp6 fl-fd-scp4" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "16px 28px", borderRadius: "999px", background: "rgb(255, 255, 255)", border: "1px solid rgb(209, 213, 219)", color: "rgb(31, 41, 55)", fontSize: "16px", fontWeight: "600", transition: "0.18s" }}>
+              <VideoModalButton
+                videoUrl="https://www.youtube.com/embed/FGYJQhFPzmY?si=pgNKWtKG28wpASDf"
+                title="Fide Labs rebranding demo"
+                className="fl-fd-scp6 fl-fd-scp4"
+                style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "16px 28px", borderRadius: "999px", background: "rgb(255, 255, 255)", border: "1px solid rgb(209, 213, 219)", color: "rgb(31, 41, 55)", fontSize: "16px", fontWeight: "600", transition: "0.18s" }}
+              >
                 View Rebrand Demo
-              </a>
+              </VideoModalButton>
             </div>
             <div style={{ display: "flex", flexWrap: "nowrap", gap: "32px", alignItems: "center", justifyContent: "flex-start" }}>
               {trustBadges.map((label) => (

@@ -1,0 +1,429 @@
+<callout icon="⚙️" color="blue_bg">
+	This guide is for merchants who have already installed the app on their store. Everything below is done entirely inside the Shopify Admin — two pages, **Settings** and **Quote Settings** — by clicking, toggling, and typing. Nothing here requires editing a file, touching code, or restarting anything.
+</callout>
+<callout icon="⚠️" color="yellow_bg">
+	Sections 2–5 are merchant-facing (Shopify Admin only, per shop). Section 6 — Branding & White Label — is a different audience: whoever deployed this app instance, configured once, before any merchant installs it. Both are covered below.
+</callout>
+---
+# 1. Where Merchant Settings Live
+Everything a merchant configures lives on two admin pages:
+<table header-row="true">
+<tr>
+<td>Page</td>
+<td>What it configures</td>
+</tr>
+<tr>
+<td>**Settings**</td>
+<td>How emails are sent (Email tab) and per-status PDF options (PDF tab)</td>
+</tr>
+<tr>
+<td>**Quote Settings**</td>
+<td>Everything about the storefront quote button and widget — appearance, behavior, targeting, and the quote request form (two tabs: Quote Settings, Form Builder)</td>
+</tr>
+</table>
+Every change on these two pages saves into this shop's own database rows — it never touches another merchant's store, and it never touches this app's source code.
+---
+# 2. Email
+**Settings → Email**
+## 2.1 Choosing how email is sent
+<table header-row="true">
+<tr>
+<td>Option</td>
+<td>What it means</td>
+</tr>
+<tr>
+<td>App default</td>
+<td>Emails send through this app's own built-in mail sender. Nothing to configure — works immediately.</td>
+</tr>
+<tr>
+<td>Gmail</td>
+<td>Send using the merchant's own Gmail account (address + an app password, not the regular account password).</td>
+</tr>
+<tr>
+<td>Elastic Email</td>
+<td>Send using the merchant's own Elastic Email account (address + API credentials).</td>
+</tr>
+<tr>
+<td>Custom SMTP</td>
+<td>Send through any mail server — host, port, username, password, and whether the connection is secure.</td>
+</tr>
+</table>
+Whichever option is chosen, the merchant also sets a **From Name** and **From Email** — what a customer sees as the sender. A **Send test email** action confirms the setup works before relying on it. Passwords/credentials entered here are encrypted before they're saved.
+## 2.2 Which emails actually send
+Four toggles, each independent:
+<table header-row="true">
+<tr>
+<td>Toggle</td>
+<td>Sends when…</td>
+</tr>
+<tr>
+<td>Notification email</td>
+<td>A customer submits a new quote request — sent to the merchant</td>
+</tr>
+<tr>
+<td>Auto-response email</td>
+<td>A customer submits a new quote request — sent back to the customer as confirmation</td>
+</tr>
+<tr>
+<td>Accept-quote email</td>
+<td>The merchant accepts a quote and chooses to email the customer</td>
+</tr>
+<tr>
+<td>Reject-quote email</td>
+<td>The merchant rejects a quote and chooses to email the customer</td>
+</tr>
+</table>
+## 2.3 Email Template Editor
+Each of the four email types above has its own editable subject, heading, message, and button text, with placeholders like `{customer_name}` or `{product_title}` that get filled in automatically. Once a merchant saves a custom template here, it's used for every future email of that type on their store — replacing the app's built-in default text just for them.
+---
+# 3. Theme
+**Quote Settings → Quote Settings tab**
+Colors and styling for everything the merchant's customers see on the storefront. Every color uses a simple color-swatch picker — no hex codes required, though typing one in is also supported.
+<table header-row="true">
+<tr>
+<td>What it colors</td>
+<td>Settings available</td>
+</tr>
+<tr>
+<td>The "Request a Quote" button</td>
+<td>Background color, text color, font size, corner roundness, full-width or not</td>
+</tr>
+<tr>
+<td>The quote request form's submit button</td>
+<td>Background color, text color, font size, corner roundness</td>
+</tr>
+<tr>
+<td>The floating quote-cart widget</td>
+<td>Background color, text color</td>
+</tr>
+<tr>
+<td>The "added to quote" toast pop-up</td>
+<td>Background color, text color, font size, corner roundness, border width/color, on-screen position</td>
+</tr>
+<tr>
+<td>The hidden-price replacement text</td>
+<td>Text color (the text itself is set in section 4)</td>
+</tr>
+</table>
+Changes here only affect that merchant's own storefront — they're completely separate from this app's own admin colors, which are a vendor-level setting (see section 6).
+---
+# 4. General Settings
+**Quote Settings → Quote Settings tab** (unless noted otherwise)
+## 4.1 How to Control Which Products Get a Quote Button
+1. Go to **Quote Settings**.
+2. Under **Targeting**, choose one: **All products**, **Specific products** (pick them individually), or **Rule-based** (e.g. by tag, product type, or vendor).
+3. If rule-based, add one or more conditions and choose whether a product must match **all** of them or **any** of them.
+4. Optionally, restrict the whole thing to specific collections only.
+5. Optionally, turn on **Require login** so only signed-in customers see the button.
+6. Optionally, list storefront URLs to exclude entirely, even if a product on that page would otherwise qualify.
+7. Click **Save**.
+## 4.2 How to Hide Prices on Specific Pages
+A separate rule system from the quote button above — a merchant can use one, both, or neither.
+1. Still on **Quote Settings**, find the **Hide Price** section.
+2. Choose the scope: **All products**, **No products**, **Specific products**, or **Rule-based** (same rule-builder as 4.1, but independent — it can target a different set of products than the quote button does).
+3. Tick which page types the hiding applies to: product pages, collection pages, the homepage, and/or the cart page.
+4. Choose what shows instead of the price: custom text (e.g. "Price available on request", edit the wording here) or nothing at all.
+5. Click **Save**.
+## 4.3 How to Change the Button, Popup, and Its Behavior
+1. Choose where the button sits on a product page (e.g. directly below Add to Cart).
+2. Turn on/off whether it also shows on collection pages and the homepage (see the Feature Flags in section 5 for the exact switches).
+3. Choose what happens on click: open the popup form directly, add the product to a running "quote cart" first, or both.
+4. Edit the button's own label, the popup's title, its submit-button text, and the message shown after a successful submission — each is a plain text field.
+5. Turn on/off the product image, the step indicator, and the trust-signal lines inside the popup, and edit what those trust-signal lines say.
+6. Click **Save**.
+## 4.4 How to Set Where Customers Land After Submitting
+1. Set **Redirect after adding to quote** — where a customer goes right after adding a product to their quote cart.
+2. Set **Redirect after submit** — where they go after the quote form itself is submitted.
+3. Set **Continue shopping link** — where a "Continue shopping" link sends them.
+4. Leave any of the three blank to keep the customer on the same page instead of redirecting them.
+5. Click **Save**.
+## 4.5 How to Set the Notification Email
+1. Find **Notify email** on the Quote Settings page.
+2. Enter the address that should receive an alert every time a new quote comes in.
+3. Click **Save**.
+This is a different setting from the sender identity ("From Name"/"From Email") configured in section 2 — this one is *who receives* the alert, that one is *who it looks like it's from*.
+## 4.6 How to Build the Quote Request Form
+1. Go to **Quote Settings → Form Builder** (the second tab).
+2. Pick a section: **Contact info**, **Shipping info**, or **Extra info**.
+3. Click **Add field**, then pick a type — short text, paragraph, email, phone, date, dropdown, radio buttons, checkbox, number, file upload, or a plain instructional paragraph.
+4. Fill in that field's label, placeholder text, and help text, plus any type-specific options (dropdown/radio choices, number min/max, accepted file types, etc.).
+5. Toggle **Required** if the customer must fill it in before submitting.
+6. Drag fields to reorder them, or remove ones that aren't needed.
+7. Separately, toggle whether product vendor, SKU, variant option, catalog price, and the customer's own quoted price show as read-only details on the form, and whether a per-product note field is offered.
+8. Click **Save**.
+## 4.7 How to Configure PDF Options
+1. Go to **Settings → PDF**.
+2. For each quote status (e.g. new, accepted), choose what that status's downloadable PDF includes.
+3. To change the PDF's actual template content — its title, description, header/footer text — click through to the **PDF Template Editor** linked from this page.
+4. Click **Save**.
+---
+# 5. Feature Flags
+Every on/off switch a merchant can flip, gathered in one place. All of them live on **Quote Settings → Quote Settings tab**, except the last four, which are on **Settings → Email**.
+<table header-row="true">
+<tr>
+<td>Flag</td>
+<td>What it turns on or off</td>
+</tr>
+<tr>
+<td>Quote widget enabled</td>
+<td>The floating quote-cart widget on the storefront, entirely</td>
+</tr>
+<tr>
+<td>Hide Add to Cart</td>
+<td>The theme's own Add to Cart button, on targeted products</td>
+</tr>
+<tr>
+<td>Hide Buy Now</td>
+<td>The theme's own Buy Now / accelerated checkout button, on targeted products</td>
+</tr>
+<tr>
+<td>Guests only</td>
+<td>Whether hiding applies only to logged-out visitors, or to everyone</td>
+</tr>
+<tr>
+<td>Show on product page</td>
+<td>Whether the quote button appears on product pages</td>
+</tr>
+<tr>
+<td>Show on product list</td>
+<td>Whether the quote button appears on collection/list pages</td>
+</tr>
+<tr>
+<td>Show on homepage</td>
+<td>Whether the quote button appears on the homepage</td>
+</tr>
+<tr>
+<td>Show variant selector</td>
+<td>Whether customers can pick a variant before requesting a quote</td>
+</tr>
+<tr>
+<td>Require login</td>
+<td>Whether a customer must be signed in to request a quote</td>
+</tr>
+<tr>
+<td>Allow price edit</td>
+<td>Whether a customer can propose their own offer price on the form</td>
+</tr>
+<tr>
+<td>Add cart to quote</td>
+<td>Whether a customer can send their entire current cart as one quote request</td>
+</tr>
+<tr>
+<td>Show product image in modal</td>
+<td>Product image inside the quote popup</td>
+</tr>
+<tr>
+<td>Show step indicator</td>
+<td>The step-progress indicator inside the quote popup</td>
+</tr>
+<tr>
+<td>Show trust signals</td>
+<td>The reassurance text lines inside the quote popup</td>
+</tr>
+<tr>
+<td>Hide price — product page / collection page / homepage / cart page</td>
+<td>Which specific page types the hide-price rule applies to (four separate switches)</td>
+</tr>
+<tr>
+<td>Hide price only</td>
+<td>Hide prices without also enabling the quote request flow</td>
+</tr>
+<tr>
+<td>Show vendor / SKU / variant option / price / quoted price / note in form</td>
+<td>Which read-only product details appear on the quote form (six separate switches)</td>
+</tr>
+<tr>
+<td>Toast enabled</td>
+<td>The "added to quote" pop-up notification, entirely</td>
+</tr>
+<tr>
+<td>Success toast enabled</td>
+<td>A separate pop-up shown specifically after a successful quote submission</td>
+</tr>
+<tr>
+<td>Notification email enabled</td>
+<td>Whether the merchant gets emailed on a new quote request (Settings → Email)</td>
+</tr>
+<tr>
+<td>Auto-response enabled</td>
+<td>Whether the customer gets an automatic confirmation email (Settings → Email)</td>
+</tr>
+<tr>
+<td>Accept-quote email enabled</td>
+<td>Whether accepting a quote can email the customer (Settings → Email)</td>
+</tr>
+<tr>
+<td>Reject-quote email enabled</td>
+<td>Whether rejecting a quote can email the customer (Settings → Email)</td>
+</tr>
+</table>
+---
+# 6. Branding & White Label
+A different audience from sections 2–5: not a per-shop merchant setting, but a one-time setup done by whoever deployed this app instance, before any merchant ever installs it. It's done by editing plain JSON files under `app/config/` — no `.js` code is touched, and it satisfies the same "no core code changes" requirement as everything else in this guide.
+## 6.1 How to Change the App's Name
+1. Open `app/config/branding.json` in the project.
+2. Find the `APP_NAME` key.
+3. Replace its value with the new name, e.g. `"APP_NAME": "Acme Quotes"`.
+4. Save the file.
+5. **Restart the app** — stop and restart the dev server, or redeploy in production. This particular file is only read once, when the server starts, so a save alone isn't enough.
+6. Reload the admin. The new name now shows everywhere the app displays its own name: email headers, the pre-install login/landing pages, dashboard copy, the Settings page sidebar, and the PDF title fallback.
+## 6.2 How to Add a Logo and Signature to Emails
+1. Open the same file, `app/config/branding.json`.
+2. Set `EMAIL_LOGO_URL` to a public image URL (must be reachable over the internet — a link to a file on your own computer won't work).
+3. Set `EMAIL_SIGNATURE` to whatever line of text should appear under the footer of every email, e.g. `"— The Acme Quotes Team"`.
+4. Save the file and restart the app, same as 6.1 — this file is cached at startup too.
+5. Send a test email (Settings → Email → Send test email) to confirm the logo and signature appear.
+**Both changes together:**
+```diff
+{
+-  "APP_NAME": "Quote Request",
+-  "EMAIL_LOGO_URL": "",
+-  "EMAIL_SIGNATURE": "",
++  "APP_NAME": "Acme Quotes",
++  "EMAIL_LOGO_URL": "https://cdn.example.com/acme-logo.png",
++  "EMAIL_SIGNATURE": "— The Acme Quotes Team",
+}
+```
+<table header-row="true">
+<tr>
+<td>Key</td>
+<td>Controls</td>
+<td>Default</td>
+</tr>
+<tr>
+<td>`APP_NAME`</td>
+<td>The product's display name across the app — email headers, the pre-install login/landing pages, dashboard copy, the Settings sidebar, the PDF title fallback</td>
+<td>"Quote Request"</td>
+</tr>
+<tr>
+<td>`EMAIL_LOGO_URL`</td>
+<td>A logo image shown in the header of every transactional email, in place of the plain store name</td>
+<td>blank — no logo</td>
+</tr>
+<tr>
+<td>`EMAIL_SIGNATURE`</td>
+<td>A signature line shown under every transactional email's footer</td>
+<td>blank — none</td>
+</tr>
+</table>
+## 6.3 How to Change Colors
+1. Decide what you want to recolor, and find the matching file in the table below — e.g. "the admin's primary button" is `app/config/app-shell/theme.json`.
+2. Open that file.
+3. Find the specific key for the thing you want to recolor — each one has a `usedIn` field describing exactly what it touches, so you can confirm you've got the right one.
+4. Change its `"value"` to a new hex color code, e.g. `"#7c3aed"`. Leave `usedIn` alone — it's a description for humans, not something the app reads.
+5. Save the file.
+6. Reload the admin page. Most of these apply immediately; `email/theme.json` is the one exception and needs a restart (see the table).
+There's no single theme file — colors are split one file per admin page, so each can be recolored independently. Every key follows the same shape: `{ "value": "#hexcode", "usedIn": "what this reaches" }`.
+<table header-row="true">
+<tr>
+<td>File</td>
+<td>What it recolors</td>
+<td>Takes effect</td>
+</tr>
+<tr>
+<td>`app-shell/theme.json`</td>
+<td>The Polaris primary-button color — applies to every admin page at once</td>
+<td>Immediately, reload the admin</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>Dashboard stat cards, checklist, progress bar</td>
+<td>Immediately</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>Quotes list and Quote Detail page accents/backgrounds</td>
+<td>Immediately</td>
+</tr>
+<tr>
+<td>`quote-settings/theme.json`</td>
+<td>Quote Settings page's own live-preview accent/success/error colors</td>
+<td>Immediately</td>
+</tr>
+<tr>
+<td>`pdf/theme.json`</td>
+<td>Generated quote PDF's header accent and background</td>
+<td>Immediately</td>
+</tr>
+<tr>
+<td>`email/theme.json`</td>
+<td>Header, button, accept, and reject colors used across every transactional email</td>
+<td>**Restart required**</td>
+</tr>
+</table>
+**Example — change the primary admin button color** (`app-shell/theme.json`):
+```diff
+{
+  "ADMIN_BUTTON_BRAND_COLOR": {
+-   "value": "#1a1a18",
++   "value": "#7c3aed",
+    "usedIn": "..."
+  }
+}
+```
+<callout icon="ℹ️" color="gray_bg">
+	The full key-by-key list for every file above — every color, its default, and exactly what it touches — is in the **Brand Configuration Guide**. This section covers what a new operator needs to get started; that guide is the complete reference.
+</callout>
+## 6.4 How to Change Admin/Email Copy and Text
+Alongside colors, each admin page (except `app-shell` and `quote-settings`, which have no editable copy) has a matching `text-labels.json` — page headings, button labels, empty-state text, and, for `email/text-labels.json`, the default subject/heading/content for each transactional email type.
+1. Find the right file, e.g. `app/config/dashboard/text-labels.json` for Dashboard copy, or `app/config/email/text-labels.json` for email defaults.
+2. Open it and find the text you want to change — keys are nested and named after where the text appears (e.g. `templates.notification.subjectDefault`).
+3. Edit the string value. Leave the key name itself alone.
+4. Save the file and reload the admin — no restart needed for these.
+**Example — change the default subject line for new-quote notification emails** (`app/config/email/text-labels.json`):
+```diff
+"notification": {
+-  "subjectDefault": "New quote request from {customer_name}",
++  "subjectDefault": "New quote from {customer_name}",
+}
+```
+<callout icon="ℹ️" color="gray_bg">
+	Email template text is only the **shipped default** for a new, uncustomized shop. A merchant who has already saved their own version in Settings → Email Templates keeps their own — editing this file doesn't touch an existing merchant's live templates.
+</callout>
+## 6.5 A Few Things That Can't Be a Config File
+A handful of identifiers are read by Shopify's own tooling at setup time, not at runtime, so they're edited by hand once instead of through JSON:
+<table header-row="true">
+<tr>
+<td>Identifier</td>
+<td>Where it's set</td>
+</tr>
+<tr>
+<td>Shopify Partner Dashboard app name</td>
+<td>`shopify.app.toml` → `name`</td>
+</tr>
+<tr>
+<td>Theme app extension's display name</td>
+<td>`extensions/quote-request/shopify.extension.toml`, and its block's `{% schema %}`</td>
+</tr>
+<tr>
+<td>Browser-tab favicon (pre-install pages)</td>
+<td>`public/favicon.svg` — replace the file directly, no config key</td>
+</tr>
+</table>
+---
+# 7. What's Intentionally Not Here
+<table header-row="true">
+<tr>
+<td>Setting</td>
+<td>Where it actually lives</td>
+</tr>
+<tr>
+<td>The complete, key-by-key list of every color and copy string in `app/config/`</td>
+<td>**Brand Configuration Guide** — section 6 here covers the essentials; that guide is the exhaustive reference</td>
+</tr>
+<tr>
+<td>Hosting, database, Shopify API credentials</td>
+<td>**Environment Variables Guide** — set by whoever hosts the app, not a merchant</td>
+</tr>
+<tr>
+<td>GDPR data requests/deletion</td>
+<td>**Webhook Documentation** — automatic, Shopify-triggered, no settings involved</td>
+</tr>
+<tr>
+<td>Adding new features or changing how something works</td>
+<td>**Developer Customization Guide** — that's a code change, out of scope for this guide entirely</td>
+</tr>
+</table>
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Brand Configuration Guide** (vendor-level branding), **Environment Variables Guide** (hosting/infrastructure), **Developer Customization Guide**.
+</callout>

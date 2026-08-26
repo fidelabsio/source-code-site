@@ -1,0 +1,438 @@
+<callout icon="🛠️" color="blue_bg">
+	This guide is for developers extending this codebase beyond rebranding: adding features, integrating third-party services, or changing business workflows. For just changing colors/logo/copy, see the Installation Guide and the README's "Rebranding a new instance" section instead - you don't need any of this to do that.
+</callout>
+<callout icon="📖" color="blue_bg">
+	Companion doc: the **API Reference** covers every existing endpoint's request/response shape. This guide covers how to add new ones and how the pieces fit together.
+</callout>
+---
+# 1. Project architecture
+This is a Shopify **React Router v7** app (Remix-style file-based routing). The codebase follows one consistent layering rule across every feature:
+```mermaid
+flowchart TD
+    R["app/routes/*.jsx thin: parses the request, renders the page"] --> DOM["app/domain/AREA/*.server.js business logic - loader and action"]
+    DOM --> LIB["app/lib/*.server.js third-party wrappers (SMTP, Cloudinary)"]
+    DOM --> CORE["app/core/* Shopify SDK singleton + per-page config readers"]
+    DOM --> DB["app/db.server.js Prisma client"]
+    CORE --> CFG["app/config/*.json buyer-editable branding and theme"]
+    LIB --> EXT["Third-party services SMTP provider, Cloudinary, Shopify Admin API"]
+    HOOK["app/hooks/AREA/*.js client-side state and handlers for one page"] --> R
+    UTIL["app/utils/*.js framework-agnostic pure helpers"] --> HOOK
+    UTIL --> DOM
+```
+Route files almost never contain logic themselves - most are a single line:
+```javascript
+export { loader, action } from "../domain/quotes/quotesList.server";
+```
+The real `loader`/`action` code lives in the matching `app/domain/` file. Client-side page state (fetchers, forms, effects) lives in a custom hook under `app/hooks/`, not in the route component. This split is what makes the codebase easy to extend safely - you almost always know exactly which single file to touch for a given change.
+## 1.1 Folder structure
+<table header-row="true">
+<tr>
+<td>Folder</td>
+<td>Role</td>
+</tr>
+<tr>
+<td>`app/routes/`</td>
+<td>File-based routes. Thin: re-exports `loader`/`action` from `domain/`, renders the page.</td>
+</tr>
+<tr>
+<td>`app/domain/`</td>
+<td>All business logic, one subfolder per bounded context (`quotes/`, `shop/`, `email/`, `pdf/`, `webhooks/`, `auth/`, `export/`, `upload/`, `support/`, `cart/`, `analytics/`).</td>
+</tr>
+<tr>
+<td>`app/core/`</td>
+<td>Framework/infra wiring with no business logic - the Shopify SDK singleton, and per-page config readers.</td>
+</tr>
+<tr>
+<td>`app/config/`</td>
+<td>Plain JSON a buyer edits to rebrand or theme the product - no code change needed.</td>
+</tr>
+<tr>
+<td>`app/lib/`</td>
+<td>Thin wrappers around third-party integrations (SMTP, Cloudinary, encryption) - no app-specific business logic.</td>
+</tr>
+<tr>
+<td>`app/components/`</td>
+<td>Shared React (Polaris) components, grouped by the feature area they belong to.</td>
+</tr>
+<tr>
+<td>`app/hooks/`</td>
+<td>Shared React hooks, one per page/concern, always prefixed `use`.</td>
+</tr>
+<tr>
+<td>`app/utils/`</td>
+<td>Framework-agnostic pure helpers with no React or route dependency.</td>
+</tr>
+</table>
+`app/domain/` currently has these subfolders: `analytics`, `auth`, `cart`, `email`, `export`, `pdf`, `quotes`, `shop`, `support`, `upload`, `webhooks`. A new feature area gets its own new subfolder here, following the same pattern.
+Two files intentionally break the `*.server.js` naming rule - `app/domain/quotes/quoteNumber.js` and `app/domain/quotes/quoteSchema.js` - because they're imported from both server and client-safe code (they contain no server-only APIs).
+## 1.2 Services
+There's no separate "services" folder - business logic **is** the `*.server.js` files under `app/domain/`. Two things play the role a "services layer" would in another codebase:
+- **`app/lib/`** - one file per third-party vendor, each exposing a small set of plain functions with zero knowledge of quotes/shops/etc:
+	- `mailer.server.js` - `sendEmailForShop()`, builds a nodemailer transport from a shop's `EmailConfig` (see section 5.1).
+	- `cloudinary.server.js` - `uploadFile()`, wraps the Cloudinary SDK (see section 5.2).
+	- `encrypt.server.js` - `encrypt()`/`decrypt()`, AES-256-GCM for stored SMTP passwords.
+- **`app/core/`** - long-lived singletons and per-page config readers:
+	- `core/shopify/shopify.server.js` - the one `shopifyApp({...})` instance. Every route/domain file that needs Shopify auth imports `authenticate` from here - never re-instantiates the SDK.
+	- `core/AREA/theme.server.js` + `text-labels.server.js` - one pair per admin page, reading the matching `app/config/AREA/*.json` file.
+**Rule to follow:** a `domain/` module that needs a third-party service imports from `lib/`, never the other way around. A brand-new integration (payments, SMS, a different email provider) belongs in a new `app/lib/VENDOR.server.js` file, consumed from whichever `app/domain/` module needs it.
+## 1.3 Components
+Organized by feature area, with `app/components/common/` for anything not tied to one page:
+```javascript
+app/components/common/ColorCard.jsx
+app/components/common/ColorSwatchPicker.jsx
+app/components/common/ResourcePickerList.jsx
+app/components/quote-detail/EmailEditorModal.jsx
+app/components/template-editor/StickySaveBar.jsx
+app/components/template-editor/TemplateEditorShell.jsx
+app/components/template-editor/TemplateVariablesCard.jsx
+app/components/template-editor/OfflineOverlay.jsx
+```
+Every embedded admin page uses **Shopify Polaris React** (`@shopify/polaris`) - `BlockStack`, `InlineStack`, `Card`, `Text`, and so on. A new component should:
+- Be a named-export function component, PascalCase filename matching the export.
+- Destructure props with a JSDoc `@param` block.
+- Compose existing Polaris primitives instead of custom CSS wherever possible.
+- Pull any hooks it needs from `app/hooks/`, rather than managing state inline.
+Example - `app/components/common/ColorCard.jsx` (entire file):
+```javascript
+import { Box } from "@shopify/polaris";
+
+export function ColorCard({ background = "#ffffff", padding, children }) {
+  return (
+    <div style={{ borderRadius: "var(--p-border-radius-300)", boxShadow: "var(--p-shadow-100)", overflow: "hidden", background }}>
+      {padding ? <Box padding={padding}>{children}</Box> : children}
+    </div>
+  );
+}
+```
+**Hooks pattern.** Route `.jsx` files stay thin views - all client-side state, effects, and handlers for a page live in one custom hook under `app/hooks/AREA/`, named to match the route (`app/routes/app.quotes.jsx` calls `useQuotesList()` from `app/hooks/quotes/useQuotesList.js`). Two rules keep this from rotting:
+- Hook files are `.js`, not `.jsx` - they must never contain JSX. Build the actual React elements in the route's render body; keep only data/handlers in the hook.
+- Hooks can call other hooks (a page hook composing `useIsMobile()`, for example) rather than duplicating logic.
+## 1.4 Utilities
+Framework-agnostic, no React or route dependency:
+```javascript
+app/utils/color.js       app/utils/csv.js      app/utils/download.js
+app/utils/cors.js        app/utils/currency.js app/utils/html.js
+app/utils/date.js        app/utils/printWindow.js  app/utils/validation.js
+```
+Reach for one of these before adding a one-off helper inside a hook or component. A new cross-cutting pure function (formatting, parsing, escaping) belongs here.
+---
+# 2. Feature extension
+## 2.1 Add a new module
+A "module" here means a new bounded-context folder under `app/domain/` - the right unit when a feature has its own data and its own set of operations (as opposed to one new page - see 2.2 - or one new endpoint on an existing page - see 2.3).
+1. Create `app/domain/my-feature/myFeature.server.js` with the actual `loader`/`action`.
+2. If it needs its own database table, add a model to `prisma/schema.prisma` and run a migration (see section 6.2 for the caveat on how migrations run in dev).
+3. If it needs a new third-party integration, add a wrapper in `app/lib/` first (section 1.2), and import it from your new domain file - never call a third-party SDK directly from `app/domain/`.
+4. Wire it up to a route (2.2) and/or an API endpoint (2.3) as needed.
+## 2.2 Create a new page
+Routing is flat-file and convention-based (`@react-router/fs-routes`) - there's no manifest to edit. A `.` in the filename becomes a `/`, and `$name` is a dynamic param. `app/routes/app.jsx` is the layout every `app.*` page nests inside, so any new file matching that prefix automatically inherits the embedded-admin shell and `authenticate.admin` auth.
+**Worked example - add `/app/reports`:**
+`app/domain/reports/reports.server.js`:
+```javascript
+import { authenticate } from "../../core/shopify/shopify.server";
+import prisma from "../../db.server";
+
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const rows = await prisma.quote.groupBy({
+    by: ["status"],
+    where: { shop: session.shop },
+    _count: true,
+  });
+  return Response.json({ rows });
+};
+```
+`app/routes/app.reports.jsx`:
+```javascript
+import { useLoaderData } from "react-router";
+import { Page, Card, Text } from "@shopify/polaris";
+
+export { loader } from "../domain/reports/reports.server";
+
+export default function Reports() {
+  const { rows } = useLoaderData();
+  return (
+    <Page title="Reports">
+      <Card>
+        <Text as="p">{JSON.stringify(rows)}</Text>
+      </Card>
+    </Page>
+  );
+}
+```
+Add it to the left nav in `app/routes/app.jsx`:
+```javascript
+<NavMenu>
+  <a href="/app" rel="home">Home</a>
+  <a href="/app/quotes">Quote List</a>
+  <a href="/app/quote-settings">Quote Settings</a>
+  <a href="/app/settings">Settings</a>
+  <a href="/app/reports">Reports</a>
+</NavMenu>
+```
+That's the whole change - no manifest, no router config. As the page grows, move its state/handlers into a new `app/hooks/reports/useReports.js` hook rather than growing the route file itself.
+## 2.3 Add a new API endpoint
+There are two templates, depending on who calls the endpoint.
+### Admin-authenticated endpoint
+Guarded by `authenticate.admin(request)`, called from inside the embedded admin (by your own frontend code, via `fetch` or a Remix `useFetcher`).
+`app/domain/my-thing/myThing.server.js`:
+```javascript
+import { authenticate } from "../../core/shopify/shopify.server";
+import prisma from "../../db.server";
+
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const rows = await prisma.quote.findMany({ where: { shop: session.shop } });
+  return Response.json({ rows });
+};
+
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  // ...mutate via prisma, always scoped to session.shop
+  return Response.json({ success: true });
+};
+```
+`app/routes/api.my-thing.jsx`:
+```javascript
+export { loader, action } from "../domain/my-thing/myThing.server";
+```
+**Rule that matters most here:** every Prisma query is scoped with `where: { shop: session.shop }` from the authenticated session - never trust a client-supplied shop value.
+### Storefront-facing (public) endpoint
+Reached through Shopify's App Proxy, guarded by `authenticate.public.appProxy(request)`. This one needs **two** route files, not one:
+```mermaid
+flowchart LR
+    B["Storefront browser fetch()"] --> P["Shopify App Proxy"]
+    P -->|"production: strips /apps/subpath prefix"| R1["app/routes/api.my-feature.jsx"]
+    P -->|"shopify app dev: keeps full path"| R2["app/routes/apps.$proxySubpath.api.my-feature.jsx"]
+    R1 --> D["app/domain/my-feature/myFeature.server.js"]
+    R2 --> D
+```
+In production, Shopify strips the `/apps/{subpath}` prefix before forwarding the request, so `/api/my-feature` is what the app sees. Under `shopify app dev`, the CLI forwards the *un-stripped* path, which 404s without the alias. `$proxySubpath` is a wildcard segment - never hardcode the actual subpath in the alias filename.
+`app/domain/my-feature/myFeature.server.js`:
+```javascript
+import prisma from "../../db.server";
+import { authenticate } from "../../core/shopify/shopify.server";
+import { buildCorsHeaders } from "../../utils/cors";
+
+const CORS = buildCorsHeaders("GET, POST, OPTIONS");
+
+export const loader = async ({ request }) => {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+  const { session } = await authenticate.public.appProxy(request); // verifies Shopify's HMAC signature
+  const shop = session?.shop;
+  if (!shop) return Response.json({ error: "Shop not installed" }, { status: 401, headers: CORS });
+
+  const settings = await prisma.settings.findUnique({ where: { shop } });
+  return Response.json({ settings }, { headers: CORS });
+};
+```
+`app/routes/api.my-feature.jsx` and `app/routes/apps.$proxySubpath.api.my-feature.jsx` - identical content in both:
+```javascript
+export { loader, action } from "../domain/my-feature/myFeature.server";
+```
+No changes are needed to `scripts/sync-app-proxy-subpath.js` - it only manages the configured subpath *value*, not the list of proxy-aliased routes.
+---
+# 3. Workflow changes
+## 3.1 Modify the quote flow
+A quote has two status fields: `status` (`new`/`read` - a simple read/unread flag) and `quoteStatus` (the real workflow state). Here's every transition and which file/intent drives it:
+```mermaid
+stateDiagram-v2
+    [*] --> new: createQuoteForShop()
+    new --> viewed: merchant opens quote detail page (GET side effect)
+    new --> quoted: intent convertToDraft
+    viewed --> quoted: intent convertToDraft
+    new --> accepted: intent accept / acceptWithEmail / acceptQuote
+    viewed --> accepted: intent accept / acceptWithEmail / acceptQuote
+    quoted --> accepted: intent accept / acceptWithEmail / acceptQuote
+    new --> rejected: intent reject / rejectWithEmail / rejectQuote
+    viewed --> rejected: intent reject / rejectWithEmail / rejectQuote
+    quoted --> rejected: intent reject / rejectWithEmail / rejectQuote
+    accepted --> paid: intent paymentReceived
+    accepted --> viewed: intent reopen
+    rejected --> viewed: intent reopen
+```
+<table header-row="true">
+<tr>
+<td>Stage</td>
+<td>File / function</td>
+</tr>
+<tr>
+<td>Creation</td>
+<td>`createQuoteForShop()` in `app/domain/quotes/quotes.server.js` - called from the storefront submission and from the admin "send test quote" preview</td>
+</tr>
+<tr>
+<td>Viewed</td>
+<td>`loader()` in `app/domain/quotes/quoteDetail.server.js` - auto-flips `new` to `viewed` when the merchant opens the detail page</td>
+</tr>
+<tr>
+<td>Quoted / Accepted / Rejected / Paid / Reopen</td>
+<td>`action()` intents in `app/domain/quotes/quoteDetail.server.js` (single quote) and `app/domain/quotes/quotesList.server.js` (bulk equivalents)</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td>Orthogonal to status - `app/domain/pdf/pdf.server.jsx`, triggered by a token-gated download link, never reads or writes `quoteStatus`</td>
+</tr>
+</table>
+## 3.2 Add a business rule
+There is no hooks/events/plugin system in this codebase - every business rule is an inline condition inside the relevant function. Two natural insertion points:
+- **At creation time** (e.g. "auto-reject quotes under $50"): `createQuoteForShop()` in `app/domain/quotes/quotes.server.js`, right before the `prisma.quote.create(...)` call:
+```javascript
+const initialStatus = resolvedOfferPrice != null && resolvedOfferPrice < 50 ? "rejected" : "new";
+// then pass { status: initialStatus, ... } into prisma.quote.create()
+```
+- **At merchant-action time** (e.g. "require manager approval to accept over $10k"): add a guard inside the relevant intent block in `action()` in `app/domain/quotes/quoteDetail.server.js`, following the same style as the existing checkout-URL allowlist check:
+```javascript
+if (intent === "accept" && quote.quotedPrice > 10000 && !session.isManager) {
+  return Response.json({ error: "Requires manager approval" });
+}
+```
+## 3.3 Customize validation
+Zod schemas live in `app/domain/quotes/quoteSchema.js`:
+```javascript
+export const quoteFormSchema = z.object({
+  customerName:  z.string().min(1, "Customer name is required"),
+  customerEmail: z.string().min(1, "Email is required").email("Enter a valid email"),
+  customerPhone: z.string().min(1, "Phone is required"),
+  shippingAddr:  shippingAddrSchema,
+  lineItems: z.array(z.object({ price: z.union([z.string(), z.number()]) }))
+    .min(1, "Add at least one product")
+    .refine((items) => items.every((i) => parseFloat(i.price) > 0),
+      { message: "All products need a price greater than 0" }),
+});
+```
+It's consumed via `.safeParse(...)` in `app/domain/quotes/quoteDetail.server.js`'s `action()`, with failures flattened by `flattenZodErrors()` into `{ "field.path": message }`.
+**To add a required field** (e.g. a PO number):
+```javascript
+poNumber: z.string().min(1, "PO number is required"),
+```
+Then add `poNumber: String(formData.get("poNumber") || "").trim()` to the object passed into `.safeParse(...)` in both the create and edit branches of `quoteDetail.server.js`'s `action()`, and persist it in the matching `prisma.quote.create`/`update` call. Add a Prisma column and migration if it's not already carried inside the `formData` JSON blob.
+**To add a custom format rule**, use `.regex()` or a cross-field `.refine()`:
+```javascript
+poNumber: z.string().regex(/^PO-\d{6}$/, "PO number must look like PO-123456"),
+```
+`flattenZodErrors()` needs no changes - it already flattens whatever path Zod's issues produce, including custom `.refine()` paths.
+---
+# 4. UI customization
+## 4.1 Components
+Covered in 1.3 - Polaris React primitives, one component per file under `app/components/AREA/`, state/handlers pulled from a hook rather than managed inline.
+## 4.2 Theme
+Two-layer system: a `theme.json` config file (buyer-editable, no code change) plus a `theme.server.js` reader (framework wiring - not meant to be edited).
+<table header-row="true">
+<tr>
+<td>Config file</td>
+<td>Reader</td>
+<td>Scope</td>
+</tr>
+<tr>
+<td>`app/config/app-shell/theme.json`</td>
+<td>`core/app-shell/theme.server.js`</td>
+<td>Global admin chrome (primary button color)</td>
+</tr>
+<tr>
+<td>`app/config/dashboard/theme.json`</td>
+<td>`core/dashboard/theme.server.js`</td>
+<td>Dashboard checklist and stat-card colors</td>
+</tr>
+<tr>
+<td>`app/config/quotes/theme.json`</td>
+<td>`core/quotes/theme.server.js`</td>
+<td>Quote list and detail page colors</td>
+</tr>
+<tr>
+<td>`app/config/quote-settings/theme.json`</td>
+<td>`core/quote-settings/theme.server.js`</td>
+<td>Quote Settings live-preview colors</td>
+</tr>
+<tr>
+<td>`app/config/pdf/theme.json`</td>
+<td>`core/pdf/theme.server.js`</td>
+<td>Generated PDF header/background colors</td>
+</tr>
+<tr>
+<td>`app/config/email/theme.json`</td>
+<td>`core/email/theme.server.js`</td>
+<td>Transactional email accent colors</td>
+</tr>
+</table>
+Example reader, `app/core/app-shell/theme.server.js`:
+```javascript
+export const ADMIN_BUTTON_BRAND_COLOR = () => readTheme().ADMIN_BUTTON_BRAND_COLOR?.value || "#1a1a18";
+```
+It re-reads the JSON file on every call, with no caching - intentional, so an edit shows up without restarting the dev server.
+**To add a new themeable color:**
+1. Add a key to the relevant `app/config/AREA/theme.json`: `{ "value": "#hex", "usedIn": "explain where this is used" }`.
+2. Add a matching exported function to that page's `core/AREA/theme.server.js`, mirroring the pattern above.
+3. Import and call that function wherever the color is needed - a route loader, a component, or a PDF/email template renderer.
+<callout icon="ℹ️" color="gray_bg">
+	Per-shop merchant color settings (the button/widget/toast colors a merchant sets in Quote Settings) live in the database, not `theme.json` - the JSON files only set the default a brand-new shop starts with.
+</callout>
+## 4.3 Layout
+`app/routes/app.jsx` is the root layout every admin page nests inside. It: calls `authenticate.admin(request)`, reads the brand color, injects it as CSS custom properties (deriving hover/active/selected shades), and renders `<ShopifyProvider>` -> `<PolarisProvider>` -> `<NavMenu>` -> `<Outlet/>`. `shouldRevalidate` is set to `false` here since the layout's own data never changes between child page navigations.
+## 4.4 Navigation
+The left nav is App Bridge's `<NavMenu>` component, populated with plain anchor tags in `app/routes/app.jsx`:
+```javascript
+<NavMenu>
+  <a href="/app" rel="home">Home</a>
+  <a href="/app/quotes">Quote List</a>
+  <a href="/app/quote-settings">Quote Settings</a>
+  <a href="/app/settings">Settings</a>
+</NavMenu>
+```
+To add a nav item for a new page, add one more `<a href="...">` line here (see the worked example in 2.2). Keep `rel="home"` on whichever link is the app's entry point. Everywhere else in the app, use `Link` from `react-router` (or a Polaris component) instead of a raw `<a>`, to avoid breaking the embedded iframe session - the `NavMenu` anchors are the one sanctioned exception, since App Bridge intercepts them itself.
+---
+# 5. Integrations
+## 5.1 SMTP providers
+`app/lib/mailer.server.js`'s `sendEmailForShop()` resolves a transport in three tiers:
+1. **Custom SMTP** - if the shop's `EmailConfig.smtpEnabled` and `smtpHost` are set, builds a raw `nodemailer.createTransport({ host, port, secure, auth })`.
+2. **Named provider** - a `switch (config.provider)` with two built-in cases today: `"gmail"` and `"elastic_email"`.
+3. **App default** - falls back to a cached Gmail transporter built from the `GMAIL_USER`/`GMAIL_APP_PASSWORD` env vars.
+Provider selection is driven by the `EmailConfig` Prisma model (one row per shop). It already has unused columns - `apiKeyEnc`, `apiDomain`, `apiRegion` - that look like they were added anticipating an API-based provider.
+**To add a new provider** (e.g. Amazon SES):
+1. Add a `case "ses":` branch to `createTransporter()` in `app/lib/mailer.server.js` - either raw SMTP credentials, or a nodemailer-compatible SES transport.
+2. Add `"ses"` to `getSmtpProviders()` and its required fields to `getProviderFields()` in `app/routes/app.settings.jsx`.
+3. No migration needed if you reuse the existing unused `apiKeyEnc`/`apiDomain`/`apiRegion` columns.
+## 5.2 Storage providers
+`app/lib/cloudinary.server.js` is the **only** supported storage backend - there's no provider-agnostic interface in front of it the way `mailer.server.js` sits in front of SMTP providers. Its entire surface is one function:
+```javascript
+export function uploadFile(buffer, { folder = "quote-requests", resource_type = "auto" } = {}) {
+  // returns Promise<{ secure_url, public_id }>
+}
+```
+**To swap providers** (e.g. to S3 or Supabase Storage):
+1. Write a new `app/lib/VENDOR.server.js` exporting a function with the same shape: `uploadFile(buffer, opts) -> Promise<{ secure_url or url, public_id or key }>`.
+2. Update the import in `app/domain/upload/upload.server.js` and the field name it destructures from the result, if it differs.
+3. Update `CLOUDINARY_*` env vars to whatever the new provider needs, and swap the dependency in `package.json`.
+## 5.3 Third-party APIs
+Outside of Shopify's own Admin API (used for draft orders) and Cloudinary, there are no other third-party API-client libraries in `package.json` today - no payment gateway, shipping-rate API, or analytics SDK. The in-app "Analytics" dashboard is first-party (computed from this app's own database), not a third-party integration. If you're adding one, follow the `app/lib/` wrapper pattern from section 1.2: isolate the vendor SDK behind a small function surface, called only from `app/domain/`.
+---
+# 6. Best practices
+## 6.1 Coding standards
+- **Linting**: `.eslintrc.cjs` at the repo root - `eslint:recommended` plus React/JSX (`plugin:react/recommended`, `react-hooks`, `jsx-a11y`) for `.jsx`/`.js` files, and a Node override for `*.server.js`/`scripts/**`/`tests/**`. Run with `npm run lint`.
+- **Formatting**: Prettier is a devDependency but has no project config file and no `npm run format` script - it's available for ad-hoc use, not enforced.
+- **Comments**: every file that isn't self-explanatory from its name gets a short header comment stating its responsibility and which route(s) consume it. Every exported function gets a JSDoc block. Comments explain *why*, not *what* - they exist for non-obvious constraints, security-sensitive details, or workarounds, not to restate the code.
+- **This is a plain-JS codebase** using JSDoc for types, not TypeScript - `npm run typecheck` only validates React Router's auto-generated route types, not your application code.
+## 6.2 Upgrade compatibility
+<callout icon="⚠️" color="yellow_bg">
+	There is no documented rebase/merge path from FIDE for pulling future upstream updates into a customized fork - `CHANGELOG.md` tracks the upstream Shopify template this app was built on, not FIDE-specific releases. To keep future merges simple: concentrate customizations in net-new files (new routes, new `domain/` modules, new components) and in the config-driven surfaces (`app/config/*.json`) rather than editing shared `core/`/`lib/` files in place.
+</callout>
+- Node engine range: `>=20.19 <22 || >=22.12` (from `package.json` `engines`).
+- Before deploying your own fork, run `npm run config:link` to bind your own Shopify Partner app - never ship with the template's original `client_id` in `shopify.app.toml`.
+- `npx prisma migrate deploy` runs automatically on every `npm run dev` restart (via `shopify.web.toml`) - don't run `prisma migrate dev`/`deploy` manually alongside it, the two collide on Prisma's advisory lock.
+## 6.3 Testing recommendations
+Two separate test setups exist:
+- **Playwright** (`tests/*.spec.js`) - end-to-end, drives the real embedded admin UI against a real dev store (needs `TEST_SHOP_DOMAIN`/`TEST_APP_CLIENT_ID`/`TEST_APP_HOST`). Run via `npm test`, or `npm run test:setup` first to save an authenticated session. Add a new `tests/my-feature.spec.js` for a new admin page, using the existing `tests/helpers.js` (`appFrame()`, etc.) for iframe-aware locators.
+- **Plain Node unit tests** (`tests/unit/*.test.mjs`) - hand-rolled, using `node:assert/strict`, run manually (e.g. `node tests/unit/pdfToken.test.mjs`), not wired into any npm script. Only two modules have this coverage today (`pdfToken`, `emailTemplates`). Follow the same pattern for new pure business logic (a new pricing calculation, a new token scheme) - or wire a real test runner in if you want this enforced automatically.
+---
+# 7. Known gaps
+<callout icon="⚠️" color="yellow_bg">
+	Worth knowing before you build on top of these:
+	- No hooks/events/plugin system exists anywhere in `domain/`, `core/`, or `lib/` - every business rule is an inline condition (section 3.2). There's no extension point to register into.
+	- Storage is hard-wired to Cloudinary with no abstraction layer, unlike SMTP (which already supports three providers). Swapping storage providers means editing `app/lib/` and its one caller directly.
+	- Unit-test coverage exists for exactly two modules and isn't part of `npm test`. Most business logic has only end-to-end Playwright coverage, or none.
+	- No documented upgrade path from FIDE for merging future updates into a customized fork.
+</callout>
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **API Reference**, **Installation Guide**, **Deployment Guide**, **Shopify Partner Setup Guide**.
+</callout>

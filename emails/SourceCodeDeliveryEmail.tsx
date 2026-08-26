@@ -35,7 +35,6 @@ const BODY_TEXT = "#434653";
 const WHITE = "#ffffff";
 const PAGE = "#f9faff";
 const GREEN = "#006c4b";
-const GREEN_SOLID = "#00ad8a";
 const BLUE_900 = "#003385";
 const BLUE_100 = "#d7e5ff";
 const BLUE_200 = "#b2c5ff";
@@ -67,7 +66,10 @@ export interface SourceCodeDeliveryEmailProps {
   purchaseDate: string;
   licenseActivatedDate: string;
   supportValidUntil: string;
-  packageFilename: string;
+  packageDownloadUrl: string;
+  agreementDownloadUrl: string;
+  documentationDownloadUrl: string;
+  installationVideoUrl: string;
   productVersion: string;
   packageSize: string;
   /** Absolute base URL for public/email-assets, no trailing slash. */
@@ -101,7 +103,10 @@ export const SourceCodeDeliveryEmail = ({
   purchaseDate,
   licenseActivatedDate,
   supportValidUntil,
-  packageFilename,
+  packageDownloadUrl,
+  agreementDownloadUrl,
+  documentationDownloadUrl,
+  installationVideoUrl,
   productVersion,
   packageSize,
   assetBaseUrl = DEFAULT_ASSET_BASE_URL,
@@ -216,14 +221,6 @@ export const SourceCodeDeliveryEmail = ({
               Your FIDE Shopify Source Code Package <span style={{ color: GREEN }}>is Ready!</span>
             </Heading>
 
-            <Img
-              src={asset("hero-package.png")}
-              alt="Gift-wrapped FIDE Labs source code package marked as verified, with a cloud download badge"
-              width="260"
-              height="266"
-              style={{ display: "block", margin: "24px auto 0", border: 0 }}
-            />
-
             <Text style={{ margin: "24px 0 0", fontFamily: FONT_STACK, fontSize: "18px", fontWeight: 600, lineHeight: "24px", color: INK }}>
               Hello {customerName},
             </Text>
@@ -331,21 +328,37 @@ export const SourceCodeDeliveryEmail = ({
                     {...bg(NAVY_FLAT)}
                     style={{ backgroundColor: NAVY_FLAT, backgroundImage: NAVY_GRADIENT, borderRadius: "9px", padding: "28px 24px" }}
                   >
-                    <Img
-                      src={asset("open-box.png")}
-                      alt="Open shipping box containing the FIDE Labs source code package"
-                      width="180"
-                      height="181"
-                      style={{ display: "block", margin: "0 auto 20px", border: 0 }}
-                    />
-
                     <Heading as="h2" style={{ margin: 0, fontFamily: DISPLAY_STACK, fontSize: "20px", fontWeight: 700, lineHeight: "26px", color: WHITE }}>
-                      Your Product Package Is Attached
+                      Your Product Package Is Ready
                     </Heading>
 
                     <Text style={{ margin: "12px 0 0", fontFamily: FONT_STACK, fontSize: "14px", fontWeight: 400, lineHeight: "20px", color: BLUE_200 }}>
-                      Download the ZIP file attached to this email to get started.
+                      Click below to download your source code package and get started.
                     </Text>
+
+                    <table role="presentation" cellPadding={0} cellSpacing={0} border={0} align="center" style={{ margin: "18px auto 0" }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ borderRadius: "8px", backgroundColor: WHITE }}>
+                            <Link
+                              href={packageDownloadUrl}
+                              style={{
+                                display: "inline-block",
+                                padding: "12px 28px",
+                                fontFamily: FONT_STACK,
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                lineHeight: "18px",
+                                color: NAVY_FLAT,
+                                textDecoration: "none",
+                              }}
+                            >
+                              Download Source Code Package
+                            </Link>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
                     <Text style={{ margin: "20px 0 10px", fontFamily: FONT_STACK, fontSize: "13px", fontWeight: 600, lineHeight: "18px", color: WHITE }}>
                       The package includes:
@@ -385,28 +398,9 @@ export const SourceCodeDeliveryEmail = ({
                       </tbody>
                     </table>
 
-                    <table role="presentation" cellPadding={0} cellSpacing={0} border={0} style={{ margin: "18px 0 0" }}>
-                      <tbody>
-                        <tr>
-                          <td {...bg(GREEN_SOLID)} style={{ backgroundColor: GREEN_SOLID, borderRadius: "7px", padding: "13px 26px" }}>
-                            <span style={{ display: "inline-block", fontFamily: FONT_STACK, fontSize: "15px", fontWeight: 600, lineHeight: "16px", color: WHITE }}>
-                              <Img
-                                src={asset("icon-download-white.png")}
-                                alt=""
-                                width="16"
-                                height="16"
-                                style={{ display: "inline-block", verticalAlign: "middle", border: 0, marginRight: "9px" }}
-                              />
-                              <span style={{ verticalAlign: "middle", color: WHITE }}>{packageFilename}</span>
-                            </span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    <Text style={{ margin: "14px 0 0", fontFamily: FONT_STACK, fontSize: "12px", fontWeight: 400, lineHeight: "17px", color: BLUE_200 }}>
-                      <span style={{ fontWeight: 600 }}>Note:</span> If you don&apos;t see the attachment, check your spam folder or
-                      contact support@fidelabs.io.
+                    <Text style={{ margin: "18px 0 0", fontFamily: FONT_STACK, fontSize: "12px", fontWeight: 400, lineHeight: "17px", color: BLUE_200 }}>
+                      <span style={{ fontWeight: 600 }}>Note:</span> Having trouble with the download link above? Contact
+                      support@fidelabs.io. Your signed Commercial License Agreement is available to download below.
                     </Text>
                   </td>
                 </tr>
@@ -446,9 +440,9 @@ export const SourceCodeDeliveryEmail = ({
                         iconWidth: 16,
                         iconHeight: 20,
                         tint: OVERLAY_BLUE,
-                        name: "Technical Documentation",
-                        action: "Download PDF",
-                        href: "https://fidelabs.io/documentation",
+                        name: "Technical Documents",
+                        action: "Download",
+                        href: documentationDownloadUrl,
                       },
                       {
                         icon: "icon-signature-green.png",
@@ -456,17 +450,17 @@ export const SourceCodeDeliveryEmail = ({
                         iconHeight: 19,
                         tint: OVERLAY_GREEN,
                         name: "License Agreement",
-                        action: "Download PDF",
-                        href: "https://fidelabs.io/license/agreement",
+                        action: "Download",
+                        href: agreementDownloadUrl,
                       },
                       {
                         icon: "icon-play-circle-slate.png",
                         iconWidth: 20,
                         iconHeight: 20,
                         tint: OVERLAY_SLATE,
-                        name: "Tutorial Guide",
+                        name: "Watch Installation Video",
                         action: "Watch Video",
-                        href: "https://fidelabs.io/documentation",
+                        href: installationVideoUrl,
                       },
                     ].map((item, index) => (
                       <table
@@ -507,27 +501,33 @@ export const SourceCodeDeliveryEmail = ({
                             </td>
 
                             <td align="right" style={{ padding: "10px 0", textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>
-                              <table role="presentation" cellPadding={0} cellSpacing={0} border={0} align="right">
-                                <tbody>
-                                  <tr>
-                                    <td style={{ border: `1px solid ${BLUE_900}`, borderRadius: "8px", padding: "8px 14px" }}>
-                                      <Link
-                                        href={item.href}
-                                        style={{ fontFamily: FONT_STACK, fontSize: "14px", fontWeight: 600, lineHeight: "16px", color: BLUE_900, textDecoration: "none", whiteSpace: "nowrap" }}
-                                      >
-                                        <span style={{ verticalAlign: "middle", color: BLUE_900 }}>{item.action}</span>
-                                        <Img
-                                          src={asset(item.action === "Watch Video" ? "icon-play-blue.png" : "icon-download-blue.png")}
-                                          alt=""
-                                          width={item.action === "Watch Video" ? "12" : "12"}
-                                          height={item.action === "Watch Video" ? "17" : "12"}
-                                          style={{ display: "inline-block", verticalAlign: "middle", border: 0, marginLeft: "8px" }}
-                                        />
-                                      </Link>
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
+                              {item.href ? (
+                                <table role="presentation" cellPadding={0} cellSpacing={0} border={0} align="right">
+                                  <tbody>
+                                    <tr>
+                                      <td style={{ border: `1px solid ${BLUE_900}`, borderRadius: "8px", padding: "8px 14px" }}>
+                                        <Link
+                                          href={item.href}
+                                          style={{ fontFamily: FONT_STACK, fontSize: "14px", fontWeight: 600, lineHeight: "16px", color: BLUE_900, textDecoration: "none", whiteSpace: "nowrap" }}
+                                        >
+                                          <span style={{ verticalAlign: "middle", color: BLUE_900 }}>{item.action}</span>
+                                          <Img
+                                            src={asset(item.action === "Watch Video" ? "icon-play-blue.png" : "icon-download-blue.png")}
+                                            alt=""
+                                            width={item.action === "Watch Video" ? "12" : "12"}
+                                            height={item.action === "Watch Video" ? "17" : "12"}
+                                            style={{ display: "inline-block", verticalAlign: "middle", border: 0, marginLeft: "8px" }}
+                                          />
+                                        </Link>
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <span style={{ fontFamily: FONT_STACK, fontSize: "13px", fontWeight: 500, lineHeight: "16px", color: BODY_TEXT, fontStyle: "italic" }}>
+                                  {item.action}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         </tbody>
@@ -668,8 +668,8 @@ export const SourceCodeDeliveryEmail = ({
                         </tr>
                         <tr>
                           <td style={{ padding: "4px 0", fontFamily: FONT_STACK, fontSize: "13px" }}>
-                            <Link href="https://docs.fidelabs.io" style={{ color: WHITE, textDecoration: "none" }}>
-                              docs.fidelabs.io
+                            <Link href="https://fidecode.com" style={{ color: WHITE, textDecoration: "none" }}>
+                              fidecode.com
                             </Link>
                           </td>
                         </tr>

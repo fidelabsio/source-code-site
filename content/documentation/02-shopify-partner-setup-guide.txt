@@ -1,0 +1,164 @@
+<callout icon="👋" color="blue_bg">
+	How to create and configure the Shopify Partner app this codebase connects to, from scratch. Do this before following the **Installation Guide**, or alongside its "connect the codebase to your Partner app" step.
+</callout>
+---
+# 1. Create a Shopify Partner account
+1. Go to partners.shopify.com and sign up (or log in if you already have one).
+2. Complete the organization setup if prompted.
+---
+# 2. Create a development store
+A dev store is where you'll install and test this app.
+1. In the Partner Dashboard, go to **Stores → Add store → Development store**.
+2. Choose "Create a store to test and build" and fill in the store details.
+3. Note the store's `*.myshopify.com` domain — you'll need it later (and for `TEST_SHOP_DOMAIN` if you plan to run the Playwright suite).
+---
+# 3. Create the app in the Partner Dashboard
+Two options:
+- **Recommended:** let Shopify CLI create it for you by running `npm run config:link` from the project and choosing "Create a new app" when prompted.
+- **Manual:** in the Partner Dashboard, go to **Apps → Create app → Create app manually**, give it a name, and continue below.
+Either way, once the app exists, link this codebase to it via `npm run config:link` (wraps `shopify app config link`), which writes the app's `client_id` into `shopify.app.toml`.
+<callout icon="🚫" color="red_bg">
+	Do not commit someone else's `client_id`. Each developer/environment connecting to their own Partner app should link their own.
+</callout>
+---
+# 4. API credentials
+From the app's **Client credentials** section in the Partner Dashboard, copy:
+- **Client ID** → written to `shopify.app.toml` by `config:link` (no env var needed)
+- **Client secret** → set as `SHOPIFY_API_SECRET` in your `.env`
+Also set `SHOPIFY_API_KEY` to the same Client ID value in `.env` — the app reads both the TOML (for CLI operations) and the env vars (for the running server) independently.
+---
+# 5. Access scopes
+This app requests the following scopes, declared in `shopify.app.toml`:
+```toml
+[access_scopes]
+scopes = "write_content,write_draft_orders,write_app_proxy"
+```
+<table header-row="true">
+<tr>
+<td>Scope</td>
+<td>Why the app needs it</td>
+</tr>
+<tr>
+<td>`write_content`</td>
+<td>Manages the theme app extension block content on the storefront</td>
+</tr>
+<tr>
+<td>`write_draft_orders`</td>
+<td>Converts an accepted quote directly into a Shopify draft order</td>
+</tr>
+<tr>
+<td>`write_app_proxy`</td>
+<td>Registers/uses the App Proxy endpoint the storefront widget calls</td>
+</tr>
+</table>
+Keep the `SCOPES` value in your `.env` in sync with `access_scopes.scopes` here — the running app and the CLI manifest should always agree, or re-authentication/scope-update issues can occur on existing installs.
+If scopes change after an app is already installed on a shop, Shopify fires the `app/scopes_update` webhook (already wired up — see section 7) so the merchant is prompted to approve the new scopes.
+---
+# 6. App URL and auth (OAuth) configuration
+In `shopify.app.toml`:
+```toml
+application_url = "https://<your-app-host>"
+embedded = true
+
+[auth]
+redirect_urls = [
+  "https://<your-app-host>/auth/callback",
+  "https://<your-app-host>/auth/tokens",
+  "https://<your-app-host>/api/auth"
+]
+```
+- `application_url` must match the `SHOPIFY_APP_URL` env var the running server uses.
+- All three `redirect_urls` are required — the callback endpoints Shopify's OAuth flow uses (`/auth/callback`, `/auth/tokens`) plus the app's own auth entrypoint (`/api/auth`).
+- `[build] automatically_update_urls_on_dev = true` means `npm run dev` automatically rewrites `application_url` and `redirect_urls` to match the current CLI tunnel URL — no hand-editing needed for local development.
+- For a stable deployment (staging/production), set these explicitly to your real hosted URL — see the **Deployment Guide**.
+---
+# 7. Webhooks
+Declared under `[webhooks]` in `shopify.app.toml`, targeting the API version in that same block:
+```toml
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = [ "shop/redact" ]
+```
+<table header-row="true">
+<tr>
+<td>Webhook</td>
+<td>Purpose</td>
+</tr>
+<tr>
+<td>`app/uninstalled`</td>
+<td>Cleans up shop data/session when a merchant uninstalls</td>
+</tr>
+<tr>
+<td>`app/scopes_update`</td>
+<td>Handles re-consent when access scopes change</td>
+</tr>
+<tr>
+<td>`customers/data_request`</td>
+<td>GDPR — mandatory compliance webhook</td>
+</tr>
+<tr>
+<td>`customers/redact`</td>
+<td>GDPR — mandatory compliance webhook</td>
+</tr>
+<tr>
+<td>`shop/redact`</td>
+<td>GDPR — mandatory compliance webhook</td>
+</tr>
+</table>
+These register automatically when you run `npm run deploy` (or on `config:link`/first deploy) — nothing to configure manually in the Partner Dashboard, since they're declared in TOML and pushed via Shopify CLI.
+---
+# 8. App proxy
+The storefront extension calls back into the app through an App Proxy, declared in `shopify.app.toml`:
+```toml
+[app_proxy]
+url = "https://<your-app-host>"
+subpath = "quote-request"
+prefix = "apps"
+```
+This makes the proxy reachable at `https://<your-dev-store>.myshopify.com/apps/quote-request/...`. The `url` here must point at your deployed app host, same as `application_url`. `npm run dev`/`build`/`deploy` all run `scripts/sync-app-proxy-subpath.js` first (via `predev`/`prebuild`/`predeploy`) to keep this subpath in sync with what the theme extension expects — no manual editing needed under normal use.
+---
+# 9. Extension registration
+The storefront "Request a Quote" block is a **theme app extension**, defined in `extensions/quote-request/shopify.extension.toml`:
+```toml
+api_version = "2025-10"
+
+[[extensions]]
+uid = "..."
+type = "theme"
+name = "Quote Request"
+handle = "quote-request"
+```
+Running `npm run deploy` (`shopify app deploy`) registers/updates this extension version against your Partner app. Once deployed, a merchant can add the "Quote Request" block to their theme from the Shopify Theme Editor.
+<callout icon="🏷️" color="blue_bg">
+	If you're white-labeling this app, `name` here is one of the few identifiers that must be edited directly in this file (see "Rebranding a new instance" in the root README.md) — it's a static manifest Shopify CLI reads at deploy time, not something a config file can drive at runtime.
+</callout>
+---
+# 10. Verifying the setup
+- [ ] `npm run config:link` completes and `shopify.app.toml` has your app's `client_id`
+- [ ] `.env` has matching `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` / `SCOPES`
+- [ ] `npm run dev` opens the app and it installs successfully on your dev store, prompting for the three scopes above
+- [ ] The "Quote Request" block appears in the Theme Editor's app block picker after `npm run deploy`
+- [ ] Submitting a quote from the storefront reaches the app (proxy is working)
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Installation Guide**, **Deployment Guide**.
+</callout>

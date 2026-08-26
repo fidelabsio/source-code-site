@@ -68,7 +68,7 @@ export const privacyPolicySections: LegalSection[] = [
           ],
           [
             `**Licence data**`,
-            `Licence ID (FID-YYYY-NNNN), issue date, delivered version, Update & Support Term dates, renewal history`,
+            `Licence ID, issue date, delivered version, Update & Support Term dates, renewal history`,
             `At purchase and throughout the Licence`,
           ],
           [
@@ -81,7 +81,11 @@ export const privacyPolicySections: LegalSection[] = [
             `Emails to [support@fidelabs.io](mailto:support@fidelabs.io), bug reports, screenshots, log extracts, configuration details you choose to send us`,
             `When you contact support`,
           ],
-          [`**Correspondence**`, `Pre-sales enquiries, legal notices, feedback and feature requests under Section 7.4 of the Licence`, `Whenever you write to us`],
+          [
+            `**Correspondence**`,
+            `Pre-sales enquiries, legal notices, feedback and feature requests under Section 7.4 of the Licence`,
+            `Whenever you write to us`,
+          ],
         ],
       },
       {
@@ -170,14 +174,24 @@ export const privacyPolicySections: LegalSection[] = [
             `Consent (Art. 6(1)(a)), or legitimate interests for existing customers where permitted`,
             `Consent, withdrawable at any time`,
           ],
-          [`Keep accounting, tax, and statutory records`, `Purchase data`, `Legal obligation (Art. 6(1)(c))`, `Compliance with law`],
+          [
+            `Keep accounting, tax, and statutory records`,
+            `Purchase data`,
+            `Legal obligation (Art. 6(1)(c))`,
+            `Compliance with law`,
+          ],
           [
             `Establish, exercise, or defend legal claims, including under Sections 8.2, 18, and 19 of the Licence`,
             `Any of the above`,
             `Legitimate interests (Art. 6(1)(f))`,
             `Legitimate use — enforcement of legal rights`,
           ],
-          [`Improve the product using feedback you send us`, `Feedback under Section 7.4`, `Legitimate interests (Art. 6(1)(f))`, `Legitimate use`],
+          [
+            `Improve the product using feedback you send us`,
+            `Feedback under Section 7.4`,
+            `Legitimate interests (Art. 6(1)(f))`,
+            `Legitimate use`,
+          ],
         ],
       },
       {
@@ -208,7 +222,10 @@ export const privacyPolicySections: LegalSection[] = [
     number: "06",
     title: "Who we share your data with",
     blocks: [
-      { type: "p", text: `We do not sell your personal data, and we do not share it for cross-context behavioural advertising.` },
+      {
+        type: "p",
+        text: `We do not sell your personal data, and we do not share it for cross-context behavioural advertising.`,
+      },
       { type: "p", text: `We share it only with the categories of recipient below.` },
       { type: "h3", text: `6.1 Service providers` },
       {
@@ -266,7 +283,10 @@ export const privacyPolicySections: LegalSection[] = [
           `another lawful transfer mechanism, including your explicit consent or the transfer being necessary for the performance of the contract between us (GDPR Art. 49(1)(b)), which will typically apply to the purchase and delivery of your licence.`,
         ],
       },
-      { type: "p", text: `You may request a copy of the safeguards we rely on by writing to us at the address in Section 12.` },
+      {
+        type: "p",
+        text: `You may request a copy of the safeguards we rely on by writing to us at the address in Section 12.`,
+      },
     ],
   },
   {
@@ -287,19 +307,29 @@ export const privacyPolicySections: LegalSection[] = [
             `Same as the licence register`,
             `Required as evidence of delivery under Section 14.1 and for enforcement under Section 8.2`,
           ],
-          [`Invoices, payment records, tax records`, `**8 years** from the end of the relevant financial year`, `Companies Act, 2013 and Indian tax law`],
-          [`Support correspondence`, `**3 years** from the close of the request`, `Product quality, and defending claims within the limitation period`],
-          [`Verification statements under Section 12.1`, `**3 years** from receipt`, `Compliance record`],
-          [`Marketing contact data`, `Until you unsubscribe, or **2 years** of inactivity, whichever is sooner`, `Consent-based`],
           [
-            `Website analytics and server logs`,
-            `*[CONFIRM — typically 14–26 months for analytics; 90 days for server logs]*`,
-            `Security and measurement`,
+            `Invoices, payment records, tax records`,
+            `**8 years** from the end of the relevant financial year`,
+            `Companies Act, 2013 and Indian tax law`,
+          ],
+          [
+            `Support correspondence`,
+            `**3 years** from the close of the request`,
+            `Product quality, and defending claims within the limitation period`,
+          ],
+          [`Verification statements under Section 12.1`, `**3 years** from receipt`, `Compliance record`],
+          [
+            `Marketing contact data`,
+            `Until you unsubscribe, or **2 years** of inactivity, whichever is sooner`,
+            `Consent-based`,
           ],
           [`Records of data subject / data principal requests`, `**3 years** from the response`, `Demonstrating compliance`],
         ],
       },
-      { type: "p", text: `After these periods we delete or irreversibly anonymise the data. Backups are deleted on their normal expiry cycle.` },
+      {
+        type: "p",
+        text: `After these periods we delete or irreversibly anonymise the data. Backups are deleted on their normal expiry cycle.`,
+      },
       {
         type: "p",
         text: `Note that deletion of your contact data does **not** remove the watermark from a package already delivered to you — that copy is in your possession, not ours — and does not affect your perpetual licence rights under Section 2.4.`,
@@ -336,13 +366,12 @@ export const privacyPolicySections: LegalSection[] = [
       {
         type: "table",
         headers: ["Type", "Purpose", "Consent required"],
-        rows: [
-          [`Strictly necessary`, `Site security, load balancing, session handling`, `No`],
-          [`Analytics *[CONFIRM if used]*`, `Understanding how the site is used`, `Yes, in the EEA and UK`],
-          [`Marketing *[CONFIRM if used]*`, `Measuring campaign performance`, `Yes, in the EEA and UK`],
-        ],
+        rows: [[`Strictly necessary`, `Site security, load balancing, session handling`, `No`]],
       },
-      { type: "p", text: `You can control cookies through your browser settings. Blocking strictly necessary cookies may prevent parts of the site from working.` },
+      {
+        type: "p",
+        text: `You can control cookies through your browser settings. Blocking strictly necessary cookies may prevent parts of the site from working.`,
+      },
     ],
   },
   {
@@ -381,7 +410,10 @@ export const privacyPolicySections: LegalSection[] = [
           `**Financial and tax records**, which we must retain by law.`,
         ],
       },
-      { type: "p", text: `Where we cannot fulfil a request in whole or in part, we will tell you why and what your options are.` },
+      {
+        type: "p",
+        text: `Where we cannot fulfil a request in whole or in part, we will tell you why and what your options are.`,
+      },
       { type: "h3", text: `11.5 How to exercise a right` },
       {
         type: "p",

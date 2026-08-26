@@ -9,8 +9,8 @@ export default function TermsPage() {
       titleHighlight="your purchase"
       subtitle="These Terms of Service govern your access to and use of the FIDE Labs website and your purchase of a licence to the Request a Quote & Hide Price source code product. Read them, and the Licence, before you buy."
       version="1.0"
-      effectiveDate="Pending"
-      lastUpdated="Pending"
+      effectiveDate="21 August 2026"
+      lastUpdated="21 August 2026"
       sections={termsSections}
       ctaHeading="Questions About These Terms?"
       ctaBody="Need clarification about these Terms or how they apply to your purchase? Our team is happy to help."

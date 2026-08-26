@@ -1,0 +1,415 @@
+<callout icon="🎨" color="blue_bg">
+	This guide is for buyers of this source code who want to rebrand the app — name, colors, logo, and email content — without touching any `.js` code. Every setting described here lives in a plain JSON file under `app/config/`.
+</callout>
+<callout icon="⚠️" color="yellow_bg">
+	**The rule:** edit the `.json` files. Never edit the matching `*.server.js` file next to it — that file only reads the JSON and hands the values to the rest of the app. If a `.server.js` file needs editing, that's a bug, not a customization.
+</callout>
+This guide is scoped to **brand identity** — app name, favicon, colors, buttons, email sender/templates/footer. It does not cover general UI copy (page headings, button labels, empty-state text), which lives in separate `text-labels.json` files per admin page; see section 5 for where that is.
+---
+# 1. Before you edit: does it need a restart?
+Every config file is read from disk, not compiled in. Most take effect on the next page load. Two are cached once when the server starts and need a restart:
+<table header-row="true">
+<tr>
+<td>File</td>
+<td>Takes effect</td>
+</tr>
+<tr>
+<td>`app/config/branding.json`</td>
+<td>**Restart required** — read once at server start</td>
+</tr>
+<tr>
+<td>`app/config/email/theme.json`</td>
+<td>**Restart required** — read once at server start</td>
+</tr>
+<tr>
+<td>`app/config/app-shell/theme.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+<tr>
+<td>`app/config/dashboard/theme.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+<tr>
+<td>`app/config/pdf/theme.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+<tr>
+<td>`app/config/quote-settings/theme.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+<tr>
+<td>`app/config/quotes/theme.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+<tr>
+<td>`app/config/email/text-labels.json`</td>
+<td>Immediately — reload the admin page</td>
+</tr>
+</table>
+If a change to `branding.json` or `email/theme.json` doesn't show up, restart the dev server (or redeploy in production) before assuming the edit is wrong.
+---
+# 2. Brand Configuration Guide
+## 2.1 App Name — app/config/branding.json
+```json
+{
+  "APP_NAME": "Your Store Name",
+  "EMAIL_LOGO_URL": "",
+  "EMAIL_SIGNATURE": ""
+}
+```
+<table header-row="true">
+<tr>
+<td>Key</td>
+<td>Controls</td>
+<td>Default if blank</td>
+</tr>
+<tr>
+<td>`APP_NAME`</td>
+<td>The product's display name — shown in transactional-email headers, the pre-install login/landing pages, dashboard onboarding copy, the Settings page sidebar, and the PDF/print-view document-title fallback</td>
+<td>"Quote Request"</td>
+</tr>
+<tr>
+<td>`EMAIL_LOGO_URL`</td>
+<td>A publicly reachable image URL shown in the header of every transactional email (notification, confirmation, accept, reject, merchant reply, GDPR data-access), in place of the plain store name</td>
+<td>blank — no logo shown</td>
+</tr>
+<tr>
+<td>`EMAIL_SIGNATURE`</td>
+<td>A signature line shown under every transactional email's footer (see 2.3 — Footer)</td>
+<td>blank — no signature shown</td>
+</tr>
+</table>
+This is the **only** file that controls the software vendor's own product name across the app. It's separate from a merchant's per-shop settings (Quote Settings, Email/PDF template content) — those are a different, already-complete customization system for the person installing the app, not for the person selling it.
+<callout icon="💡" color="blue_bg">
+	**Favicon** — there is no `FAVICON` key. The browser-tab icon for the standalone pre-install landing and login pages (the ones outside the Shopify admin iframe) is `public/favicon.svg`, referenced by path in `app/root.jsx`. Replace that SVG file directly; it isn't config-driven.
+</callout>
+## 2.2 Colors & Buttons — the theme.json files
+There is no single `theme.json`. Colors are split one file per admin page, so each page can be recolored independently without side effects on the others. All of them share the same shape:
+```json
+{
+  "SOME_COLOR_KEY": {
+    "value": "#hexcode",
+    "usedIn": "plain-English description of what this reaches"
+  }
+}
+```
+`usedIn` is documentation, not read by the code — edit `value` only.
+<table header-row="true">
+<tr>
+<td>File</td>
+<td>Key</td>
+<td>Default</td>
+<td>Controls</td>
+</tr>
+<tr>
+<td>`app-shell/theme.json`</td>
+<td>`ADMIN_BUTTON_BRAND_COLOR`</td>
+<td>`#1a1a18`</td>
+<td>Polaris primary-button brand color, applied once in the root admin layout — reaches **every** admin page, not just one</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>`DASHBOARD_CHECKLIST_COLOR`</td>
+<td>`#1a1a18`</td>
+<td>Setup-guide checklist's completed-step checkmark</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>`DASHBOARD_STAT_TEXT_COLOR`</td>
+<td>`#1a1a18`</td>
+<td>Stat card numbers (Total Quotes, This Month, Accepted, Revenue)</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>`DASHBOARD_STAT_CARD_BACKGROUND_COLOR`</td>
+<td>`#ffffff`</td>
+<td>Background of the 4 stat cards</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>`DASHBOARD_PROGRESS_BAR_COLOR`</td>
+<td>`#5c6ac4`</td>
+<td>Setup-guide progress bar fill</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTES_LIST_COLOR`</td>
+<td>`#1a1a18`</td>
+<td>Quotes list checkbox accent, tab underline, pagination, "Approved" status text</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTES_LIST_SUCCESS_COLOR`</td>
+<td>`#1a7f4b`</td>
+<td>Quotes list offered-price text</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTES_LIST_WARNING_COLOR`</td>
+<td>`#f59e0b`</td>
+<td>Quotes list pending/warning status pill</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTE_DETAIL_ACCENT_COLOR`</td>
+<td>`#5c6ac4`</td>
+<td>Quote Detail timeline "note" dot</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTE_DETAIL_LINK_COLOR`</td>
+<td>`#2c6ecb`</td>
+<td>Quote Detail page link color</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTES_LIST_CARD_BACKGROUND_COLOR`</td>
+<td>`#ffffff`</td>
+<td>Background of the Quotes list's main card</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`QUOTE_DETAIL_CARD_BACKGROUND_COLOR`</td>
+<td>`#ffffff`</td>
+<td>Background of every Quote Detail card</td>
+</tr>
+<tr>
+<td>`quote-settings/theme.json`</td>
+<td>`QUOTE_SETTINGS_ACCENT_COLOR`</td>
+<td>`#3b82f6`</td>
+<td>Quote Settings live preview — focus borders, file-upload highlight</td>
+</tr>
+<tr>
+<td>`quote-settings/theme.json`</td>
+<td>`QUOTE_SETTINGS_SUCCESS_COLOR`</td>
+<td>`#1a7f4b`</td>
+<td>Quote Settings live preview "submitted" banner</td>
+</tr>
+<tr>
+<td>`quote-settings/theme.json`</td>
+<td>`QUOTE_SETTINGS_ERROR_COLOR`</td>
+<td>`#dc2626`</td>
+<td>Quote Settings required-field asterisks and validation text</td>
+</tr>
+<tr>
+<td>`pdf/theme.json`</td>
+<td>`PDF_HEADER_ACCENT_COLOR`</td>
+<td>`#2c6ecb`</td>
+<td>Generated quote PDF header accent — only visible until a merchant saves the PDF/Invoice Editor once, which then permanently overrides it from the database</td>
+</tr>
+<tr>
+<td>`pdf/theme.json`</td>
+<td>`PDF_PAGE_BACKGROUND_COLOR`</td>
+<td>`#ffffff`</td>
+<td>Generated quote PDF page background — keep light, fixed dark body text sits on top</td>
+</tr>
+</table>
+<callout icon="ℹ️" color="gray_bg">
+	**Not in these files:** the storefront widget's button/form colors and every color a merchant sets in **Quote Settings** are per-shop merchant data stored in the database, not JSON. That's a different audience (the merchant running the store) from this guide's audience (the vendor selling the source code). Editing these files changes the *vendor's own admin/PDF branding* — it never touches a merchant's live storefront widget.
+</callout>
+## 2.3 Email — Colors, Templates, Sender
+Three separate concerns live under `app/config/email/`, plus one setting that is deliberately **not** in a config file.
+**Colors** — `app/config/email/theme.json`:
+```json
+{
+  "EMAIL_HEADER_COLOR": "#1a1a18",
+  "EMAIL_CTA_COLOR": "#1a1a18",
+  "EMAIL_ACCEPT_COLOR": "#1a7f4b",
+  "EMAIL_REJECT_COLOR": "#4a4a48",
+  "EMAIL_EDITOR_LINK_COLOR": "#2c6ecb"
+}
+```
+<table header-row="true">
+<tr>
+<td>Key</td>
+<td>Controls</td>
+</tr>
+<tr>
+<td>`EMAIL_HEADER_COLOR`</td>
+<td>Header background for notification/auto-response emails</td>
+</tr>
+<tr>
+<td>`EMAIL_CTA_COLOR`</td>
+<td>Button background for notification/auto-response emails</td>
+</tr>
+<tr>
+<td>`EMAIL_ACCEPT_COLOR`</td>
+<td>Header + button background for every "quote accepted" email</td>
+</tr>
+<tr>
+<td>`EMAIL_REJECT_COLOR`</td>
+<td>Header + button background for every "quote rejected" email</td>
+</tr>
+<tr>
+<td>`EMAIL_EDITOR_LINK_COLOR`</td>
+<td>Link color inside the Email Template Editor's own admin UI (not inside the sent email)</td>
+</tr>
+</table>
+These are fixed vendor-set colors, independent of anything a merchant configures — kept separate from every other `theme.json` since email rendering has its own constraints (inline styles only, email-client quirks).
+**Templates** — `app/config/email/text-labels.json`, under its `templates` key, holds the shipped default subject/heading/content/button text for the four transactional email types (`notification`, `auto-response`, `accept-quote`, `reject-quote`), plus the merge variables each supports:
+```json
+"notification": {
+  "subjectDefault": "New quote request from {customer_name}",
+  "headingDefault": "New Quote Request!",
+  "contentDefault": "You have a new quote request from {customer_name} for {product_title}. {quote_message}",
+  "actionDefault": "View Quote",
+  "variables": [
+    { "key": "{customer_name}", "desc": "Full name of the customer" }
+  ]
+}
+```
+<callout icon="ℹ️" color="gray_bg">
+	These are only the **shipped defaults**. Once a merchant edits a template in **Settings → Email Templates**, their edit is saved per-shop in the database and takes over from this file for that shop — editing this JSON changes what a *new, uncustomized* shop sees, not an existing merchant's live templates.
+</callout>
+**Footer** — there is no dedicated "footer" config. What renders at the bottom of every transactional email is:
+1. A fixed line: `Sent to {email} via {store_name}` (not configurable — the recipient address and the merchant's own store name).
+2. `EMAIL_SIGNATURE` from `branding.json` (section 2.1), shown underneath it when set.
+**Sender** — the "From Name" / "From Email" a customer sees is a per-shop merchant setting (**Settings → Email → SMTP**), stored in the database, not a JSON file. Each shop sets its own sender independently of this app instance's own branding. It's excluded here for the same reason merchant Quote Settings are: it belongs to whoever installs the app, not to whoever sells it.
+---
+# 3. Configuration Examples
+### Rename the app
+`app/config/branding.json`:
+```diff
+- "APP_NAME": "Quote Request",
++ "APP_NAME": "Acme Quotes",
+```
+Restart the server — this file is cached at startup (section 1).
+### Add a logo and signature to transactional emails
+`app/config/branding.json`:
+```diff
+- "EMAIL_LOGO_URL": "",
+- "EMAIL_SIGNATURE": "",
++ "EMAIL_LOGO_URL": "https://cdn.example.com/acme-logo.png",
++ "EMAIL_SIGNATURE": "— The Acme Quotes Team",
+```
+Restart the server. Every transactional email now shows the logo in its header and the signature line in its footer.
+### Change the primary admin button color
+`app/config/app-shell/theme.json`:
+```diff
+  "ADMIN_BUTTON_BRAND_COLOR": {
+-   "value": "#000075",
++   "value": "#7c3aed",
+    "usedIn": "..."
+  }
+```
+Reload the admin — no restart needed. This reaches every admin page, since it's set once in the root layout.
+### Recolor the "quote accepted" email
+`app/config/email/theme.json`:
+```diff
+- "EMAIL_ACCEPT_COLOR": "#1a7f4b",
++ "EMAIL_ACCEPT_COLOR": "#059669",
+```
+Restart the server — email colors are cached at startup (section 1).
+### Change a template's default subject line
+`app/config/email/text-labels.json`, inside `templates.notification`:
+```diff
+- "subjectDefault": "New quote request from {customer_name}",
++ "subjectDefault": "New quote from {customer_name}",
+```
+Reload the admin — no restart needed. Only affects shops that haven't yet saved their own copy of this template in Settings → Email Templates.
+### Replace the favicon
+Not JSON. Overwrite `public/favicon.svg` with a same-named SVG file. No restart or config edit needed — it's served as a static asset.
+---
+# 4. JSON Reference
+Complete list of buyer-editable JSON under `app/config/`, in scope for brand identity:
+<table header-row="true">
+<tr>
+<td>File</td>
+<td>Key format</td>
+<td>Reload</td>
+</tr>
+<tr>
+<td>`branding.json`</td>
+<td>flat SCREAMING_SNAKE_CASE</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>`app-shell/theme.json`</td>
+<td>`{ value, usedIn }` per key</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>`dashboard/theme.json`</td>
+<td>`{ value, usedIn }` per key</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>`quotes/theme.json`</td>
+<td>`{ value, usedIn }` per key</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>`quote-settings/theme.json`</td>
+<td>`{ value, usedIn }` per key</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>`pdf/theme.json`</td>
+<td>`{ value, usedIn }` per key</td>
+<td>Immediate</td>
+</tr>
+<tr>
+<td>`email/theme.json`</td>
+<td>flat SCREAMING_SNAKE_CASE</td>
+<td>Restart required</td>
+</tr>
+<tr>
+<td>`email/text-labels.json` (`templates` key only — see section 5 for the rest of this file)</td>
+<td>nested camelCase</td>
+<td>Immediate</td>
+</tr>
+</table>
+Every key in every file above is documented in section 2. Nothing under these files is left unexplained.
+# 5. What's intentionally not here
+To avoid any ambiguity about missing settings:
+<table header-row="true">
+<tr>
+<td>Setting</td>
+<td>Where it actually lives</td>
+<td>Why it's not a brand config file</td>
+</tr>
+<tr>
+<td>Email sender (From Name/Email, SMTP credentials)</td>
+<td>Settings → Email → SMTP (database, per shop)</td>
+<td>Merchant setting, not vendor branding</td>
+</tr>
+<tr>
+<td>Storefront widget button/form colors</td>
+<td>Quote Settings (database, per shop)</td>
+<td>Merchant setting, not vendor branding</td>
+</tr>
+<tr>
+<td>Favicon</td>
+<td>`public/favicon.svg`</td>
+<td>Static asset, not JSON</td>
+</tr>
+<tr>
+<td>Shopify Partner app name</td>
+<td>`shopify.app.toml` → `name`</td>
+<td>Static manifest, evaluated by Shopify CLI at setup time, not at runtime</td>
+</tr>
+<tr>
+<td>Theme app extension name</td>
+<td>`extensions/quote-request/shopify.extension.toml` and its block's `{% schema %}`</td>
+<td>Same — static manifest</td>
+</tr>
+<tr>
+<td>App icon (Shopify admin)</td>
+<td>Uploaded once in the Partner Dashboard</td>
+<td>Outside this codebase entirely</td>
+</tr>
+<tr>
+<td>General admin UI copy (page headings, button labels, empty states)</td>
+<td>`app/config/{dashboard,quotes,pdf}/text-labels.json`</td>
+<td>A separate concern (UI text) from brand identity — not covered by this guide</td>
+</tr>
+<tr>
+<td>Storefront widget default copy</td>
+<td>`extensions/quote-request/locales/en.default.json`</td>
+<td>Shopify's own i18n mechanism for theme app extensions, not this app's branding config</td>
+</tr>
+</table>
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Developer Customization Guide** (section 4.2 covers the same `theme.json` files from an engineering-extension angle), **Installation Guide**, **Configuration Guide**.
+</callout>

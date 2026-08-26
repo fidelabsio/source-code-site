@@ -1,0 +1,202 @@
+**FIDE Request Quote & Hide Price — White-Label Source Code**
+Which document answers which question. Start at the top.
+---
+## 1. Onboarding Flow
+![](diagram)
+---
+## 2. Document Directory
+<table header-row="true">
+<tr>
+<td>Document</td>
+<td>Location</td>
+<td>Purpose</td>
+</tr>
+<tr>
+<td>**Commercial Licence Agreement**</td>
+<td>`LICENSE.md`</td>
+<td>Binding terms: deployment scope, restrictions, renewal, termination. Prevails over everything else.</td>
+</tr>
+<tr>
+<td>**Buyer Onboarding Guide**</td>
+<td>`ONBOARDING.md`</td>
+<td>Entry point. Licence scope, path selection, first steps, support.</td>
+</tr>
+<tr>
+<td>**Quick Start Checklist**</td>
+<td>`QUICK-START-CHECKLIST.md`</td>
+<td>Tick-box execution list from licence check to compliance close-out.</td>
+</tr>
+<tr>
+<td>**Documentation Navigation Flow**</td>
+<td>`DOCS-MAP.md`</td>
+<td>This file. Routes you to the right document.</td>
+</tr>
+<tr>
+<td>**Upgrade Guide**</td>
+<td>`UPGRADE.md`</td>
+<td>Moving between versions without data loss.</td>
+</tr>
+<tr>
+<td>**Third-Party Notices**</td>
+<td>`THIRD-PARTY-NOTICES`</td>
+<td>Open-source components and their licences. Must be retained in every deployment.</td>
+</tr>
+<tr>
+<td>**Package README**</td>
+<td>`README.md`</td>
+<td>Prerequisites, commands, contact addresses.</td>
+</tr>
+<tr>
+<td>**Installation Guide**</td>
+<td>`/docs/installation.md`</td>
+<td>Local setup, dependencies, database, first install.</td>
+</tr>
+<tr>
+<td>**White Label Guide**</td>
+<td>`/docs/white-label.md`</td>
+<td>Rebranding: identity, assets, colours, email, copy.</td>
+</tr>
+<tr>
+<td>**Deployment Guide**</td>
+<td>`/docs/deployment.md`</td>
+<td>Production hosting, env vars, migrations, webhooks.</td>
+</tr>
+<tr>
+<td>**FAQ & Troubleshooting**</td>
+<td>`/docs/faq.md`</td>
+<td>Symptom-indexed fixes and common questions.</td>
+</tr>
+<tr>
+<td>**Changelog**</td>
+<td>`CHANGELOG.md`</td>
+<td>Release history and upgrade notes.</td>
+</tr>
+<tr>
+<td>**Version**</td>
+<td>`VERSION`</td>
+<td>The exact release you are running. Quote it in support requests.</td>
+</tr>
+</table>
+---
+## 3. Reading Order
+### Path A — your own team implements
+```text
+LICENSE.md → ONBOARDING.md → Installation Guide → White Label Guide
+    → Deployment Guide → QUICK-START-CHECKLIST.md → UPGRADE.md
+```
+Total reading time ≈ 100 minutes. Skip nothing.
+### Path B — an implementation partner does the work
+**You read:** `LICENSE.md` → `ONBOARDING.md` §2, §3 (Path B), §8 → `QUICK-START-CHECKLIST.md` Phases 0, 8, 9
+**Your partner reads:** Installation Guide → White Label Guide → Deployment Guide → FAQ
+The licence obligations stay with you, the licence holder — not with your partner. Do not delegate §2 or Phase 8.
+---
+## 4. Route by Question
+![](diagram)
+<table header-row="true">
+<tr>
+<td>If you're asking…</td>
+<td>Go to</td>
+</tr>
+<tr>
+<td>What Node / CLI / Postgres version do I need?</td>
+<td>Installation Guide → Prerequisites</td>
+</tr>
+<tr>
+<td>How do I create the Shopify app?</td>
+<td>Installation Guide</td>
+</tr>
+<tr>
+<td>Migrations are failing</td>
+<td>FAQ → Database</td>
+</tr>
+<tr>
+<td>OAuth fails / redirect mismatch</td>
+<td>FAQ → Authentication</td>
+</tr>
+<tr>
+<td>Admin won't load in the iframe</td>
+<td>FAQ → Embedded app & CSP</td>
+</tr>
+<tr>
+<td>Where do I change the logo and colours?</td>
+<td>White Label Guide</td>
+</tr>
+<tr>
+<td>What am I **not** allowed to rebrand?</td>
+<td>`ONBOARDING.md` §4 Step 2, then `LICENSE.md` §6</td>
+</tr>
+<tr>
+<td>How do I rebrand the emails?</td>
+<td>White Label Guide → Email templates</td>
+</tr>
+<tr>
+<td>Notification emails aren't arriving</td>
+<td>FAQ → Email deliverability</td>
+</tr>
+<tr>
+<td>Which env vars are required?</td>
+<td>`.env.example`, then Deployment Guide</td>
+</tr>
+<tr>
+<td>How do I host this in production?</td>
+<td>Deployment Guide</td>
+</tr>
+<tr>
+<td>How do I register the GDPR webhooks?</td>
+<td>Deployment Guide → Webhooks</td>
+</tr>
+<tr>
+<td>Prices aren't hiding on my theme</td>
+<td>FAQ → Theme extension conflicts</td>
+</tr>
+<tr>
+<td>Can I deploy this on a second store?</td>
+<td>No — each store needs its own licence. `LICENSE.md` Schedule B.1</td>
+</tr>
+<tr>
+<td>Can I deploy this for a client?</td>
+<td>No. `LICENSE.md` §6</td>
+</tr>
+<tr>
+<td>Can I list this on the Shopify App Store?</td>
+<td>No. `LICENSE.md` §6</td>
+</tr>
+<tr>
+<td>Can I run it as a hosted service for other merchants?</td>
+<td>No. `LICENSE.md` §6</td>
+</tr>
+<tr>
+<td>Can my contractor see the source?</td>
+<td>Yes, under confidentiality. `LICENSE.md` §5 and §13</td>
+</tr>
+<tr>
+<td>How many test environments can I have?</td>
+<td>Three. `ONBOARDING.md` §2.1</td>
+</tr>
+<tr>
+<td>Do my updates expire?</td>
+<td>`ONBOARDING.md` §8 · `LICENSE.md` §11</td>
+</tr>
+<tr>
+<td>What happens if I don't renew?</td>
+<td>`UPGRADE.md` §2 · `LICENSE.md` §11.3</td>
+</tr>
+<tr>
+<td>Do I need a DPA with FIDE Labs?</td>
+<td>No. `ONBOARDING.md` §8 · `LICENSE.md` §12</td>
+</tr>
+<tr>
+<td>How do I upgrade to a new release?</td>
+<td>`UPGRADE.md`, then `CHANGELOG.md` upgrade notes</td>
+</tr>
+<tr>
+<td>Is this a bug or my mistake?</td>
+<td>FAQ first, then check your pristine `vendor` branch, then support</td>
+</tr>
+</table>
+---
+## 5. Escalation Path
+![](diagram)
+> Modifications are not supported. Checking against your pristine `vendor` branch before you report tells us — and you — whether the defect is ours.
+---
+*Included in the product package · Companion to `ONBOARDING.md` and `LICENSE.md`*

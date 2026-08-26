@@ -4,7 +4,7 @@ import { sendContactEmail } from "@/lib/email";
 import { contactFormSchema } from "@/lib/contactSchema";
 
 export async function POST(request: NextRequest) {
-  if (!process.env.RESEND_API_KEY || !process.env.CONTACT_TEMPLATE_ID) {
+  if (!process.env.RESEND_API_KEY || !process.env.CONTACT_TO_EMAIL || !process.env.CONTACT_FROM_EMAIL) {
     return NextResponse.json({ error: "Email service is not configured." }, { status: 503 });
   }
 

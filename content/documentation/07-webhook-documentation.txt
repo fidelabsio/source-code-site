@@ -1,0 +1,186 @@
+<callout icon="📘" color="blue_bg">
+	This app's five webhooks, in full: why each one exists, exactly what Shopify sends, how the handler processes it, and how registration actually works. Verified directly against the current source (`app/domain/webhooks/*.server.js`, `app/routes/webhooks.*.jsx`, `shopify.app.toml`) and against Shopify's own webhook/compliance documentation.
+</callout>
+<callout icon="📖" color="blue_bg">
+	New to this codebase? Read the **Installation Guide** and **Shopify Partner Setup Guide** first. The condensed version of this page also lives in **API Reference** §6 - this page goes deeper on payloads, registration mechanics, and per-webhook processing logic.
+</callout>
+---
+# 1. Why this app has webhooks
+Two unrelated reasons this app subscribes to webhooks at all:
+- **Mandatory GDPR compliance.** Every app distributed through the Shopify App Store must respond to three compliance topics - `customers/data_request`, `customers/redact`, `shop/redact` - regardless of whether the app actually stores personal data. Failing to implement or correctly acknowledge these gets an app rejected at review.
+- **App lifecycle tracking.** `app/uninstalled` and `app/scopes_update` let the app react to things that happen to its own installation (removed, or granted a different set of scopes) rather than to shop data.
+There is no webhook topic for "app installed" - see §5 for how that event is actually handled in this app.
+---
+# 2. How registration works
+Webhooks are **not** registered by any function call in this codebase. `shopify.server.js` exports `registerWebhooks` from the Shopify SDK, but nothing calls it - grep `app/` and there's no call site. Instead, all five subscriptions are declared **declaratively** in `shopify.app.toml`:
+```toml
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = [ "shop/redact" ]
+```
+This is Shopify's **app-specific ("managed") webhook** mechanism - the modern replacement for registering webhooks per-shop via the Admin API. A few things follow from that:
+- **`topics` vs `compliance_topics`**: functionally identical delivery, but `compliance_topics` is restricted to exactly the three GDPR topics and is how Shopify's App Store review recognizes that the mandatory webhooks are wired up. Using plain `topics` for a compliance topic works technically but won't satisfy the review checklist the same way.
+- **One subscription per shop that installs the app** - not per-shop-configured. Every shop running this app gets the exact same five subscriptions; there's no per-merchant variation.
+- **Applied on deploy, not on install.** Running `shopify app dev` applies changes to your linked dev store immediately; `shopify app deploy` (or `npm run deploy` in this repo) is what pushes the current TOML config - including this `[webhooks]` block - to the app definition in the Partner Dashboard for every store. Editing this file and forgetting to deploy is the most common way subscriptions silently drift from what's live.
+- **No manual re-subscription needed.** Because these are config-managed, adding a sixth topic later means adding a `[[webhooks.subscriptions]]` block and deploying - not writing registration code.
+You can confirm what's actually live for a given app in the Partner Dashboard (App setup → Webhooks), or by re-running `shopify app deploy` and reading its summary output.
+---
+# 3. How every webhook is verified
+All five route handlers open with the same line:
+```javascript
+const { shop, payload } = await authenticate.webhook(request);
+```
+This checks the `X-Shopify-Hmac-Sha256` header against a signature computed from the raw request body using the app's API secret, with a constant-time comparison. A missing or invalid signature makes `authenticate.webhook` throw before any handler code runs - Shopify sees a non-2xx response and retries delivery on its own schedule. On success, it also parses and hands back `payload` (and `session`, for the two non-GDPR webhooks that need it).
+Every handler below returns an empty `200 Response()` in the success path. For the four GDPR/uninstall handlers this is deliberate even when an internal error occurs (caught and logged, not surfaced) - Shopify only requires acknowledgement of receipt for these, not a success signal. `app/scopes_update` is the one exception: it has no try/catch around its database write, so an unhandled error there *will* produce a non-200 response and trigger a Shopify retry.
+---
+# 4. GDPR / compliance webhooks
+These three are the mandatory ones from §1. Shopify requires a response within 30 days of receipt (unless a legal retention exception applies), acknowledged immediately with a 2xx status.
+## customers/data_request - right of access
+File: `app/domain/webhooks/customersDataRequest.server.js`
+**Fires when:** a customer asks a merchant for a copy of the data the app holds about them.
+**Shopify's payload:**
+```json
+{
+  "shop_id": 954889,
+  "shop_domain": "{shop}.myshopify.com",
+  "orders_requested": [299938, 280263, 220458],
+  "customer": { "id": 191167, "email": "john@example.com", "phone": "555-625-1199" },
+  "data_request": { "id": 9999 }
+}
+```
+<callout icon="ℹ️" color="gray_bg">
+	Note what this app does **not** use: `orders_requested` is a list of Shopify order IDs, but this app doesn't key its data by Shopify orders - it stores customer-submitted quote requests in its own `Quote` table, keyed by email. The handler ignores `orders_requested`/`data_request.id` entirely and looks up by `payload.customer.email` instead.
+</callout>
+**Processing logic:**
+1. Extract `customerEmail` from `payload.customer.email`. If absent, skip straight to the 200 response - there's nothing to look up.
+2. Query all `Quote` rows for `{ shop, customerEmail }`, plus the shop's notification-email config and email-sender config, in parallel.
+3. If no quotes match, respond `200` immediately - nothing to disclose.
+4. There is no callback URL or automated delivery channel in this webhook - the merchant, not Shopify or the app, is the GDPR data controller. So the app emails **the merchant** (not the customer) a formatted report of every quote record it holds for that email, using `config.notifyEmail` or the configured sender address as the recipient. The merchant is expected to relay it to the customer.
+5. If no merchant email is configured at all, the request isn't dropped - the matching records remain visible in the app's own dashboard (Quotes list, filterable by email), which still satisfies "provide the data to the store owner." This is logged as a warning, not an error.
+**Response:** empty `200`, in every branch, including internal errors (caught and logged only).
+---
+## customers/redact - right to erasure
+File: `app/domain/webhooks/customersRedact.server.js`
+**Fires when:** a merchant confirms a customer's request to delete their personal data. Per Shopify's own compliance docs, if the customer has an order within the last 6 months this fires 10 days after the request is made; otherwise Shopify waits until 6 months have passed since their last order.
+**Shopify's payload:**
+```json
+{
+  "shop_id": 954889,
+  "shop_domain": "{shop}.myshopify.com",
+  "customer": { "id": 191167, "email": "john@example.com", "phone": "555-625-1199" },
+  "orders_to_redact": [299938, 280263, 220458]
+}
+```
+Same note as above applies: `orders_to_redact` (Shopify order IDs) isn't used - matching is by `payload.customer.email` against this app's own `Quote` records.
+**Processing logic:** anonymizes rather than hard-deletes every `Quote` row matching `{ shop, customerEmail }`. Fields that can identify or contact the customer are cleared:
+<table header-row="true">
+<tr>
+<td>Field</td>
+<td>New value</td>
+</tr>
+<tr>
+<td>`customerName`</td>
+<td>"[redacted]"</td>
+</tr>
+<tr>
+<td>`customerEmail`</td>
+<td>"[redacted]"</td>
+</tr>
+<tr>
+<td>`customerPhone`, `companyName`, `message`, `merchantReply`, `replyHistory`, `internalNotes`, `notesHistory`, `formData`, `checkoutLink`</td>
+<td>`null`</td>
+</tr>
+</table>
+Operational fields - `status`, `quantity`, `productTitle`, `quoteNumber`, timestamps - are deliberately left intact, so aggregate analytics (dashboard counts/trends) don't lose historical data just because one customer was redacted.
+**Response:** empty `200`, even on internal error (caught and logged only).
+---
+## shop/redact - full shop purge
+File: `app/domain/webhooks/shopRedact.server.js`
+**Fires when:** roughly 48 hours after a merchant uninstalls the app, on Shopify's own schedule - this is not something the app controls the timing of.
+**Shopify's payload:**
+```json
+{ "shop_id": 954889, "shop_domain": "{shop}.myshopify.com" }
+```
+**Processing logic:**
+1. **Reinstall guard.** Check whether an active `Session` row exists for the shop. `app/uninstalled` (below) deletes sessions on uninstall, so a session existing here means the merchant did a fresh OAuth since then - i.e. they reinstalled within the 48-hour window. If so, skip deletion entirely and return `200`. This is what turns the 48-hour gap between `app/uninstalled` and `shop/redact` into a genuine grace period rather than a race condition.
+2. **Otherwise, permanently delete everything shop-scoped** - not just customer PII: quotes, quote-targeting rules, price-hiding rules, quote config, email config, email templates, form schema, general settings, and sessions.
+3. Uses `Promise.allSettled` across all eleven deletes, deliberately, instead of `Promise.all` - one table's delete failing must not abort the others. A partial purge is considered safer than silently leaving most of a shop's data behind because one table errored. Each failure is logged individually with its step index.
+**Response:** empty `200` regardless of individual delete outcomes.
+---
+# 5. "App Installed"
+There is no `app/installed` webhook topic in Shopify's API - it doesn't exist, so this app doesn't (and can't) subscribe to one. Install completion is handled through the **OAuth flow** instead:
+- `GET /auth/*` (`app/routes/auth.$.jsx` → `authCallbackLoader` in `app/domain/auth/auth.server.js`) runs `authenticate.admin(request)`, which performs the actual token exchange and persists the session row. That's the functional equivalent of "the app is now installed for this shop" - there's no separate hook or event to react to afterward.
+- `GET/POST /auth/login` (`app/domain/auth/auth.server.js`) handles the pre-install / re-auth entry point for shops that aren't embedded yet.
+See **API Reference** §2.5 and §5 for the full request/response details of these routes.
+---
+# 6. app/uninstalled
+File: `app/domain/webhooks/appUninstalled.server.js`
+**Fires when:** a merchant removes the app - immediately, not after a delay.
+**Shopify's payload:** the full `Shop` resource (large; abbreviated here to the fields worth knowing about):
+```json
+{
+  "id": 548380009,
+  "name": "Super Toys",
+  "email": "super@supertoys.com",
+  "domain": null,
+  "myshopify_domain": null,
+  "customer_email": "super@supertoys.com",
+  "plan_name": "enterprise"
+}
+```
+<callout icon="ℹ️" color="gray_bg">
+	The handler doesn't read any field from this payload - it only needs `shop` from `authenticate.webhook(request)` (derived from the request's shop domain, independent of the payload body) to know which rows to clean up.
+</callout>
+**Processing logic:** deletes **only** `Session` rows for the shop - deliberately does not touch any business data (quotes, settings, config). The access token is already revoked by Shopify by the time this fires; deleting the session is purely local bookkeeping, and it's also what lets `shop/redact` later detect a reinstall (see §4 above - a session existing again means a fresh OAuth happened).
+This is the origin of the ~48-hour grace period: quotes/settings/config all survive an uninstall on their own, and are only permanently erased later by `shop/redact`, and only if the shop is still inactive by then.
+**Response:** empty `200`; session-deletion errors are caught and logged, not surfaced - this side effect isn't critical enough to justify a Shopify retry-storm.
+---
+# 7. Other supported webhooks
+## app/scopes_update
+File: `app/domain/webhooks/appScopesUpdate.server.js`
+**Fires when:** a merchant approves a changed set of API access scopes - for example, after this app's `shopify.app.toml` adds or removes a scope and the merchant re-approves on their next admin visit.
+**Shopify's payload:**
+```json
+{
+  "id": 1,
+  "shop_id": "gid://shopify/Shop/548380009",
+  "previous": ["read_products"],
+  "current": ["read_products", "write_products"],
+  "updated_at": "2024-06-25T00:00:00.000Z"
+}
+```
+**Processing logic:** takes `payload.current` (the new full scope list) and writes it to the `scope` column of the shop's stored `Session` row, so future `authenticate.admin` calls know what's actually granted. If `session` comes back empty from `authenticate.webhook` (possible if the session was already cleared mid-uninstall, a race condition), there's nothing to update and the handler just returns `200`.
+<callout icon="⚠️" color="yellow_bg">
+	Unlike the other four webhooks, this one has **no try/catch** around its database write. An unhandled error here produces a non-200 response, and Shopify will retry delivery - worth knowing if this ever needs closer error handling.
+</callout>
+**Response:** empty `200`.
+---
+# 8. Testing webhooks locally
+Manually trigger any topic against your dev store without waiting for the real event:
+```shell
+shopify app webhook trigger --topic=app/uninstalled --address=https://<your-tunnel-or-host>/webhooks/app/uninstalled
+```
+Substitute the topic and matching `uri` from `shopify.app.toml` for any of the other four. This confirms the endpoint is reachable and HMAC-verifiable - it does **not** validate that the subscription itself is correctly configured in `shopify.app.toml`/deployed; that still requires an actual `shopify app deploy` and checking the Partner Dashboard.
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **API Reference** (§2.4, §6 - condensed version of this page alongside every other route), **Deployment Guide** (§8 - post-deploy webhook verification checklist), **Shopify Partner Setup Guide**.
+</callout>

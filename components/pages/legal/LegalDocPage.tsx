@@ -90,7 +90,11 @@ export default function LegalDocPage({
             <p style={{ fontSize: "15px", lineHeight: "1.65", color: "rgba(255, 255, 255, 0.82)", margin: "0px auto 26px", maxWidth: "520px" }}>
               {ctaBody}
             </p>
-            <a href={ctaHref} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "15px 30px", borderRadius: "999px", background: "rgb(255, 255, 255)", color: "rgb(13, 21, 38)", fontSize: "14.5px", fontWeight: 600, boxShadow: "rgba(13, 21, 38, 0.5) 0px 10px 26px -12px" }}>
+            <a
+              href={ctaHref}
+              suppressHydrationWarning
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "15px 30px", borderRadius: "999px", background: "rgb(255, 255, 255)", color: "rgb(13, 21, 38)", fontSize: "14.5px", fontWeight: 600, boxShadow: "rgba(13, 21, 38, 0.5) 0px 10px 26px -12px" }}
+            >
               {`${ctaLabel} `}
               <span>→</span>
             </a>

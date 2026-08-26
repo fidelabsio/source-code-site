@@ -2,11 +2,19 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { issueLicenseForOrder } from "@/lib/license";
 import { sendLicenseEmail } from "@/lib/email";
-import { buildLicensedPackage } from "@/lib/packageDelivery";
+import { buildLicenseAgreementPdf } from "@/lib/licenseAgreementPdf";
+import { uploadOrderFile } from "@/lib/cloudinaryUpload";
 import { prisma } from "@/lib/prima";
 
 const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 const RENEWAL_VARIANT_ID = process.env.RENEWAL_VARIANT_ID;
+const PRODUCT_VERSION = process.env.PRODUCT_VERSION || "1.0.0";
+const INSTALLATION_VIDEO_URL = process.env.INSTALLATION_VIDEO_URL || "";
+// The source zip and the technical-documents zip are identical for every
+// customer — uploaded ONCE via scripts/uploadStaticPackages.ts rather than
+// re-uploaded on every order (see lib/cloudinaryUpload.ts's overwrite note).
+const SOURCE_CODE_PACKAGE_URL = process.env.SOURCE_CODE_PACKAGE_URL || "";
+const DOCUMENTATION_BUNDLE_URL = process.env.DOCUMENTATION_BUNDLE_URL || "";
 
 function isRenewalOrder(order: { line_items?: { variant_id?: number }[] }) {
   if (!RENEWAL_VARIANT_ID) return false;
@@ -104,22 +112,31 @@ export async function POST(request: NextRequest) {
     data: { emailSentAt: new Date() },
   });
 
-  if (claimed.count === 0) {
-    console.log("[order paid] license email already sent, skipping", { orderGid: paidOrder.orderGid });
-  } else {
     const licenseType = paidOrder.isRenewal ? "License Renewal" : "Commercial License";
 
     try {
-      const { buffer, filename } = buildLicensedPackage({
+      const agreementBuffer = await buildLicenseAgreementPdf({
         licenseKey: license.licenseKey,
         licenseType,
         customerName,
         customerEmail,
         orderNumber: paidOrder.orderName,
-        purchaseDate,
-        supportValidUntil: formatDate(expiresAt),
+        issueDate: license.createdAt,
+        termExpiry: expiresAt,
+        acceptedAt: license.createdAt,
+        deliveredVersion: `v${PRODUCT_VERSION}`,
       });
-      console.log("[order paid] package built", { orderGid: paidOrder.orderGid, filename, bytes: buffer.length });
+      console.log("[order paid] license agreement built", {
+        orderGid: paidOrder.orderGid,
+        bytes: agreementBuffer.length,
+      });
+
+      const agreementDownloadUrl = await uploadOrderFile(
+        agreementBuffer,
+        "source-code-site/license-agreements",
+        `${license.licenseKey}.pdf`
+      );
+      console.log("[order paid] license agreement uploaded", { orderGid: paidOrder.orderGid, agreementDownloadUrl });
 
       await sendLicenseEmail({
         to: customerEmail,
@@ -130,7 +147,10 @@ export async function POST(request: NextRequest) {
         purchaseDate,
         licenseActivatedDate: purchaseDate,
         supportValidUntil: formatDate(expiresAt),
-        attachment: { filename, content: buffer },
+        packageDownloadUrl: SOURCE_CODE_PACKAGE_URL,
+        agreementDownloadUrl,
+        documentationDownloadUrl: DOCUMENTATION_BUNDLE_URL,
+        installationVideoUrl: INSTALLATION_VIDEO_URL,
       });
       console.log("[order paid] license email sent", { orderGid: paidOrder.orderGid, to: customerEmail });
     } catch (error) {
@@ -144,7 +164,7 @@ export async function POST(request: NextRequest) {
       // license is issued with no package/email ever sent to the buyer
       return NextResponse.json({ error: "Failed to build package or send license email." }, { status: 500 });
     }
-  }
+
 
   console.log("[webhook] done", { topic, webhookId, orderGid: paidOrder.orderGid });
   return NextResponse.json({ received: true });

@@ -1,0 +1,200 @@
+This guide explains what every folder and file in this project is for, in plain language. It's written for both non-technical readers and developers — if you're new to the codebase, this is where you start.
+Think of the project like a building: the **top-level folders** are the floors, and **`app/`** is the floor where almost everything actually happens.
+---
+## 1. Top-Level Folders
+<table header-row="true">
+<tr>
+<td>Folder</td>
+<td>What it is</td>
+</tr>
+<tr>
+<td>`app/`</td>
+<td>The embedded admin app — every page, every piece of logic, every setting. Covered in detail below.</td>
+</tr>
+<tr>
+<td>`prisma/`</td>
+<td>The database. `schema.prisma` defines what information is stored (quotes, settings, etc.), and `migrations/` is the history of every change ever made to that structure.</td>
+</tr>
+<tr>
+<td>`extensions/`</td>
+<td>The part of the app that shows up on the actual online store — the "Request a Quote" button and popup form a shopper sees and fills in.</td>
+</tr>
+<tr>
+<td>`public/`</td>
+<td>Plain static files, like the small icon shown in the browser tab (favicon).</td>
+</tr>
+<tr>
+<td>`scripts/`</td>
+<td>A couple of small helper scripts that run automatically (not by hand) to keep two config files in sync before the app starts, builds, or deploys.</td>
+</tr>
+<tr>
+<td>`tests/`</td>
+<td>Automated tests that check the app still works correctly — both full walkthroughs of the admin pages and small checks of individual pieces of logic.</td>
+</tr>
+</table>
+---
+## 2. Inside app/ — Where Everything Happens
+`app/` is organized so that each folder has one clear job. Once you know the pattern, finding anything in the app becomes a matter of asking "what kind of thing is this?" and going to the matching folder.
+### app/routes/ — Every Page and Endpoint
+Every file in this folder is a page a person can visit, or a small "endpoint" the app itself calls in the background. Each file is kept short — it just figures out what's being asked for and passes the real work off to `app/domain/`.
+**Admin pages** (what a merchant sees inside Shopify):
+- `app.jsx` — the shared frame around every admin page (top navigation, layout)
+- `app._index.jsx` — the Dashboard / Overview page, shown first when opening the app
+- `app.quotes.jsx` — the Quotes list
+- `app.quote.$id.jsx` — a single quote's detail page (view, price it, accept/reject, message the customer)
+- `app.quote-settings.jsx` — where a merchant configures the quote button, the form, and hide-price rules
+- `app.settings.jsx` — general app settings, including email/SMTP setup
+- `app.email-edit.$id.jsx` — the Email Template Editor
+- `app.pdf-edit.$id.jsx` — the PDF/Invoice Template Editor
+- `app.export-quotes.jsx` — the "Export Quotes" screen
+**Sign-in and installation:**
+- `auth.$.jsx` — completes sign-in when a merchant installs or reopens the app
+- `auth.login/` — the sign-in page shown before a merchant is connected
+- `_index/` — the public landing page shown to a visitor who hasn't installed the app yet
+**Behind-the-scenes endpoints** (small bits of data the pages above fetch, not pages themselves):
+- `api.analytics.jsx` — the numbers shown on the Dashboard
+- `api.config.jsx` — reads/saves quote and hide-price settings
+- `api.export.jsx` — builds the CSV file for "Export Quotes"
+- `api.reply.jsx` — sends a merchant's reply email to a customer
+- `api.upload.jsx` — handles a file a merchant uploads in the admin
+- `api.quote.$id.pdf.jsx` — the secure link a customer uses to download their quote as a PDF
+- `api.quote.jsx` — the same "submit a quote" logic used by the storefront widget, reachable directly (mainly used while developing)
+- `cart.jsx` — supports the storefront's cart page
+- `health.jsx` — a simple "is the app alive?" check
+**Storefront-facing endpoints** (these three exist because Shopify's storefront can only reach the app through a signed, rewritten "App Proxy" URL):
+- `apps.$proxySubpath.api.quote.jsx` — where a customer's submitted quote request actually arrives
+- `apps.$proxySubpath.api.config.jsx` — the settings the storefront widget needs to display itself correctly
+- `apps.$proxySubpath.api.upload.jsx` — file attachments a customer adds to their quote request
+**GDPR and app lifecycle** (Shopify calls these automatically, no one visits them):
+- `webhooks.app.uninstalled.jsx` — runs when a merchant removes the app
+- `webhooks.app.scopes_update.jsx` — runs when a merchant approves new permissions
+- `webhooks.customers.data_request.jsx` — a customer asked for a copy of their data
+- `webhooks.customers.redact.jsx` — a customer asked for their data to be deleted
+- `webhooks.shop.redact.jsx` — permanently cleans up a shop's data after uninstall
+### app/domain/ — The Business Logic
+This is the "brain" of the app — the actual rules and logic for every feature, one folder per feature area:
+<table header-row="true">
+<tr>
+<td>Folder</td>
+<td>What it handles</td>
+</tr>
+<tr>
+<td>`quotes/`</td>
+<td>Creating, listing, viewing, and updating quotes; the quote form; generating a checkout link</td>
+</tr>
+<tr>
+<td>`email/`</td>
+<td>Every transactional email, and the Email Template Editor</td>
+</tr>
+<tr>
+<td>`pdf/`</td>
+<td>Generating the quote PDF, and the PDF Template Editor</td>
+</tr>
+<tr>
+<td>`shop/`</td>
+<td>Per-shop settings, the Dashboard's data, currency</td>
+</tr>
+<tr>
+<td>`analytics/`</td>
+<td>The Dashboard's stats</td>
+</tr>
+<tr>
+<td>`export/`</td>
+<td>Exporting quotes to a CSV file</td>
+</tr>
+<tr>
+<td>`upload/`</td>
+<td>Customer file attachments</td>
+</tr>
+<tr>
+<td>`support/`</td>
+<td>A merchant replying to a customer</td>
+</tr>
+<tr>
+<td>`cart/`</td>
+<td>The storefront cart page</td>
+</tr>
+<tr>
+<td>`auth/`</td>
+<td>The sign-in/install flow</td>
+</tr>
+<tr>
+<td>`webhooks/`</td>
+<td>One file per Shopify webhook (see the route list above)</td>
+</tr>
+</table>
+### app/core/ — Connecting to Shopify
+Setup code that has no business logic of its own — it just wires the app up to Shopify (and to this app's own settings files) so everything else can use it without worrying about the details.
+- `shopify/` — sets up the connection to Shopify (sign-in, permissions, sessions)
+- `branding.server.js` / `appProxy.server.js` — read the app's name and the storefront-widget web address from `app/config/`
+- `app-shell/`, `dashboard/`, `email/`, `pdf/`, `quote-settings/`, `quotes/` — one small pair of files per admin page, each reading that page's colors/text from the matching folder in `app/config/`
+### app/lib/ — Connections to Outside Services
+Small, self-contained wrappers around services this app depends on but doesn't own:
+- `cloudinary.server.js` — uploads customer attachments to Cloudinary (file storage)
+- `mailer.server.js` — actually sends emails (via Gmail or a merchant's own email provider)
+- `encrypt.server.js` — scrambles/unscrambles sensitive saved values (like an email password) so they aren't stored in plain text
+### app/components/ — Reusable Page Pieces
+Bits of on-screen UI shared by more than one page, so they only need to be built once:
+- `common/` — a color picker, a color-preview card, a product picker (used across several pages)
+- `quote-detail/` — the email pop-up used on the quote detail page
+- `template-editor/` — the shared building blocks of the Email and PDF template editors (the editing frame, the save bar, the "available variables" card, the offline-connection screen)
+### app/hooks/ — Reusable Page Behavior
+Where a page's on-screen logic lives (what happens when you click something, what to show while loading), separated from how it looks. Mostly grouped to match the page they belong to (`quotes/`, `email/`, `shop/`, `app/`), plus a few general-purpose ones used everywhere (detecting a mobile screen, tracking unsaved changes, managing a dynamic list of form fields).
+### app/config/ — Rebranding Settings
+Plain, simple files a buyer of this app's source code edits to make it their own — changing colors, wording, and the app's name — without touching any code:
+- `branding.json` — the app's display name, and an optional logo/signature for emails
+- `app-shell/`, `dashboard/`, `email/`, `pdf/`, `quote-settings/`, `quotes/` — one folder per admin page, each with that page's colors and, where applicable, its text
+- `app-proxy.json` — a technical setting (the storefront widget's web address), kept in sync automatically — not meant to be hand-edited
+### app/utils/ — Small Helper Tools
+Short, general-purpose functions used in several places — formatting a date, formatting a price, checking if an email address looks valid, building a CSV file, escaping text safely for an email, and similar small jobs. Nothing here is specific to quotes, emails, or any one feature.
+### A Few Individual Files in app/
+- `db.server.js` — the single connection to the database that everything else uses
+- `root.jsx`, `entry.client.jsx`, `entry.server.jsx`, `routes.js` — standard framework files that start the app up; you'll rarely need to touch these
+---
+## 3. A Closer Look at the Other Top-Level Folders
+### prisma/ — The Database
+- `schema.prisma` — the single file that defines every piece of information the app stores: quotes, per-shop settings, hide-price rules, email templates, sign-in sessions, and more (11 data types in total).
+- `migrations/` — one folder per change ever made to that structure, in the order it happened, plus `migration_lock.toml` (records which database engine, PostgreSQL, these migrations are written for). Nothing in here is edited by hand — new folders are generated automatically when the schema changes.
+### public/ — Static Files
+Just one file today: `favicon.svg`, the small icon shown in the browser tab for the app's standalone sign-in and landing pages.
+### scripts/ — Setup Automation
+One file: `sync-app-proxy-subpath.js`. The storefront widget's web address (its "App Proxy subpath") is set in one place, `shopify.app.toml`, but three different files need to agree on it. This script copies that one value into the other two automatically, every time the app starts, builds, or deploys — so nobody has to remember to update all three by hand.
+### tests/ — Automated Checks
+- `dashboard.spec.js`, `email-templates.spec.js`, `pdf-templates.spec.js`, `quote-detail.spec.js`, `quote-settings.spec.js`, `quotes.spec.js`, `settings.spec.js` — full walkthroughs of each admin page, driven against a real Shopify development store, using a tool called Playwright.
+- `helpers.js`, `auth.setup.js` — shared setup code the tests above all rely on (not tests themselves).
+- `unit/emailTemplates.test.mjs`, `unit/pdfToken.test.mjs` — smaller, faster checks of two specific pieces of logic that don't need a browser or a store to test.
+### extensions/quote-request/ — The Storefront Widget, in Detail
+- `blocks/quote-request.liquid` — the actual "Request a Quote" block a merchant adds to their store's theme.
+- `assets/` — the JavaScript that makes the button, popup, and form work (`quote-request.js`, `quote-request-ui.js`, `quote-request-utils.js`).
+- `locales/en.default.json` — the storefront widget's default text, in English.
+- `shopify.extension.toml` — a small settings file that tells Shopify what this extension is called and how to install it.
+---
+## 4. Other Files in the Root Folder
+Alongside the folders above, a number of individual files sit at the project root. None of these are "application logic" — they're project documentation, or they configure a tool the project uses.
+**Project documentation:**
+- `README.md` — the main entry point: what this app is, how to install it, and how to run it.
+- `CLAUDE.md` — instructions for AI coding assistants (like Claude Code) working in this repository.
+- `ARCHITECTURE.md` — how the app works end to end (authentication, data flow, the database, etc.).
+- `FOLDER_STRUCTURE.md` — this document.
+- `CHANGELOG.md` — a running history of what changed in each release.
+**App setup and dependencies:**
+- `package.json` — the list of every library the app depends on, plus all the shortcut commands (`npm run dev`, `npm run build`, and so on).
+- `package-lock.json` — the exact version of every one of those libraries, so every install is identical. Generated automatically — never edited by hand.
+- `.env` / `.env.example` — the secret and per-environment settings the app needs to run (database connection, Shopify credentials, email provider, etc.). `.env.example` lists every value that can be set with an explanation; `.env` is each developer's own copy with real values, and is never committed to Git.
+**Shopify configuration:**
+- `shopify.app.toml` — the app's main configuration on Shopify's side: its ID, its web address, which permissions it asks for, and which webhooks it listens for.
+- `shopify.app.staging.toml` — the same thing, for a separate staging/testing copy of the app.
+- `shopify.web.toml` — tells Shopify's own command-line tool how to start this app during development.
+**Build and test tools:**
+- `vite.config.js` — configures Vite, the tool that bundles the app's code for the browser.
+- `playwright.config.js` — configures Playwright, the tool that runs the tests in `tests/`.
+- `.graphqlrc.js` — configures automatic type-generation for the app's calls to Shopify's API.
+**Code style and editor settings** (keep every developer's code looking the same, regardless of which editor they use):
+- `.eslintrc.cjs` / `.eslintignore` — rules that catch common coding mistakes, and which files to skip.
+- `.prettierignore` — which files should be left alone by the code formatter.
+- `.editorconfig` — basic formatting rules (spacing, line endings) any code editor can follow.
+- `.npmrc` — a couple of settings for how dependencies get installed.
+- `.gitignore` — tells Git which files should never be tracked or uploaded (like `.env`, `node_modules/`, and `build/`).
+**AI tooling:**
+- `.mcp.json` — connects Shopify's own documentation lookup tool into AI coding assistants used on this project.
+- `skills-lock.json` — records which versions of a set of Shopify-specific AI assistant "skills" this project uses.

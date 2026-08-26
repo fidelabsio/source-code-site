@@ -13,10 +13,9 @@ export const termsSections: LegalSection[] = [
         type: "p",
         text: `The Site is operated by **FIDE LAB (OPC) PRIVATE LIMITED**, a company registered at 901, 302, DSR Tranquil, Ayyappa Society, Madhapur, Hyderabad – 500081, Telangana, India ("**FIDE Labs**", "**we**", "**us**", "**our**").`,
       },
-      { type: "p", text: `By accessing the Site, placing an order, or completing a purchase, you agree to these Terms. If you do not agree, do not use the Site.` },
       {
         type: "p",
-        text: `**If you are accepting on behalf of a company, you confirm that you have authority to bind that company, and "you" means that company.**`,
+        text: `By accessing the Site, placing an order, or completing a purchase, you agree to these Terms. If you do not agree, do not use the Site.`,
       },
     ],
   },
@@ -189,7 +188,7 @@ export const termsSections: LegalSection[] = [
           `Delivery does not depend on whether you subsequently download, deploy, or use the Product.`,
           `We send the download to the email address given at checkout. **You are responsible for the accuracy of that address** and for ensuring you can receive our email. Tell us promptly if you do not receive it.`,
           `Each package is watermarked and traceable to you under Section 8.1 of the Licence. The Privacy Policy explains what is embedded and why.`,
-          `You are issued a Licence ID in the format FID-YYYY-NNNN. Quote it in all correspondence.`,
+          `You are issued a Licence ID. Quote it in all correspondence.`,
         ],
       },
       {
@@ -221,7 +220,10 @@ export const termsSections: LegalSection[] = [
         type: "p",
         text: `Support is included for the duration of your Update & Support Term and is governed by **Section 10 of the Licence**. It is provided by email at [support@fidelabs.io](mailto:support@fidelabs.io) during business hours in GMT+5:30, with a **target** first response of 2 business days.`,
       },
-      { type: "p", text: `Target response times are goals, not contractual commitments, and do not constitute a service level agreement.` },
+      {
+        type: "p",
+        text: `Target response times are goals, not contractual commitments, and do not constitute a service level agreement.`,
+      },
     ],
   },
   {
@@ -287,8 +289,14 @@ export const termsSections: LegalSection[] = [
         type: "p",
         text: `THE SITE AND ITS CONTENT ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SITE WILL BE AVAILABLE WITHOUT INTERRUPTION OR ERROR, OR THAT IT OR ITS CONTENT IS ACCURATE, COMPLETE, OR CURRENT.`,
       },
-      { type: "p", text: `The Product itself is provided subject to the disclaimer in **Section 15 of the Licence**, which applies in place of this Section in respect of the Product.` },
-      { type: "p", text: `Nothing in this Section excludes or limits any warranty, liability, or right that cannot be excluded or limited under applicable law.` },
+      {
+        type: "p",
+        text: `The Product itself is provided subject to the disclaimer in **Section 15 of the Licence**, which applies in place of this Section in respect of the Product.`,
+      },
+      {
+        type: "p",
+        text: `Nothing in this Section excludes or limits any warranty, liability, or right that cannot be excluded or limited under applicable law.`,
+      },
     ],
   },
   {
@@ -332,10 +340,7 @@ export const termsSections: LegalSection[] = [
     number: "15",
     title: "Privacy",
     blocks: [
-      {
-        type: "p",
-        text: `Our handling of personal data is described in the **Privacy Policy**, [available here](/privacy), which forms part of these Terms.`,
-      },
+      { type: "p", text: `Our handling of personal data is described in the **Privacy Policy**, which forms part of these Terms.` },
       {
         type: "p",
         text: `That policy also explains the watermarking and traceability metadata embedded in each delivered package under Section 8.1 of the Licence, and confirms that we are **not** a processor or sub-processor for personal data handled by your deployment (Section 12 of the Licence).`,
@@ -388,7 +393,10 @@ export const termsSections: LegalSection[] = [
         type: "p",
         text: `**Entire agreement.** These Terms, together with the Privacy Policy and — where you have purchased — the Licence, the invoice, and any Order Form, are the entire agreement between us in respect of the Site and your purchase, and supersede all prior discussions and representations.`,
       },
-      { type: "p", text: `**Severability.** If any provision is held unenforceable, it will be limited or severed to the minimum extent necessary and the rest remains in force.` },
+      {
+        type: "p",
+        text: `**Severability.** If any provision is held unenforceable, it will be limited or severed to the minimum extent necessary and the rest remains in force.`,
+      },
       { type: "p", text: `**Waiver.** A failure to enforce any provision is not a waiver of it.` },
       {
         type: "p",
@@ -398,12 +406,18 @@ export const termsSections: LegalSection[] = [
         type: "p",
         text: `**Force majeure.** Neither party is liable for delay or failure caused by events beyond its reasonable control, excluding payment obligations.`,
       },
-      { type: "p", text: `**Independent contractors.** Nothing here creates a partnership, joint venture, employment, or agency relationship.` },
+      {
+        type: "p",
+        text: `**Independent contractors.** Nothing here creates a partnership, joint venture, employment, or agency relationship.`,
+      },
       {
         type: "p",
         text: `**Notices.** Notices to you go to the email address you gave at checkout, or the address in the Licensee Information block of your Licence. Notices to us go to [Support@fidelabs.io](mailto:Support@fidelabs.io) and, where formal service is required, to the registered address in Section 1. Email notice is deemed received on the next business day.`,
       },
-      { type: "p", text: `**Survival.** Sections 2, 4.2, 9, 10, 12, 13, 14, 17, and 18 survive termination of these Terms or of your access to the Site.` },
+      {
+        type: "p",
+        text: `**Survival.** Sections 2, 4.2, 9, 10, 12, 13, 14, 17, and 18 survive termination of these Terms or of your access to the Site.`,
+      },
     ],
   },
   {
@@ -415,7 +429,10 @@ export const termsSections: LegalSection[] = [
         headers: ["Purpose", "Address"],
         rows: [[`Sales, licensing, purchase verification, renewals, support`, `[support@fidelabs.io](mailto:support@fidelabs.io)`]],
       },
-      { type: "p", text: `Include your Licence ID, Licence Tier, delivered version, and purchase email in any correspondence about an existing licence.` },
+      {
+        type: "p",
+        text: `Include your Licence ID, Licence Tier, delivered version, and purchase email in any correspondence about an existing licence.`,
+      },
     ],
   },
 ];

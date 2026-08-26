@@ -1,5 +1,6 @@
 import IconTile from "@/components/ui/IconTile";
 import GradientButton from "@/components/ui/GradientButton";
+import VideoModalButton from "@/components/ui/VideoModalButton";
 
 const HIGHLIGHTS = [
   {
@@ -71,10 +72,15 @@ export default function Hero() {
               {"Get Source Code "}
               <span style={{ fontSize: "16px" }}>→</span>
             </GradientButton>
-            <a href="/documentation?doc=video-tutorials" className="fl-ix-scp6 fl-ix-scp5" style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "16px 28px", borderRadius: "999px", background: "rgb(255, 255, 255)", border: "1px solid rgb(209, 213, 219)", color: "rgb(31, 41, 55)", fontSize: "16px", fontWeight: "600", transition: "0.18s" }}>
+            <VideoModalButton
+              videoUrl="https://www.youtube.com/embed/rsHVQ1cPUfc?si=6_SoGKauu2pHL6rP"
+              title="Fide Labs feature exploration demo"
+              className="fl-ix-scp6 fl-ix-scp5"
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "16px 28px", borderRadius: "999px", background: "rgb(255, 255, 255)", border: "1px solid rgb(209, 213, 219)", color: "rgb(31, 41, 55)", fontSize: "16px", fontWeight: "600", transition: "0.18s" }}
+            >
               <span style={{ fontSize: "11px" }}>▶</span>
               {" Watch Demo"}
-            </a>
+            </VideoModalButton>
           </div>
         </div>
         <div style={{ position: "relative", padding: "24px 0px 0px", animation: "7s ease-in-out 0s infinite normal none running fl-heroFloat" }}>

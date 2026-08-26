@@ -1,0 +1,69 @@
+<callout icon="👋" color="blue_bg">
+	How to create the hosted PostgreSQL database this app needs, using **Prisma Postgres** (Prisma's own managed database, via console.prisma.io) — and wire it into the app as `DATABASE_URL`. No local PostgreSQL install is required; see the **Installation Guide**'s prerequisites.
+</callout>
+---
+# 1. Create a Prisma account / sign in
+1. Go to console.prisma.io.
+2. Sign in with GitHub, Google, or email (create an account if you don't have one).
+---
+# 2. Create a new project and database
+1. Click **New project** (or **Create database** if you already have a project).
+2. Give the project/database a name, e.g. `quote-request-source-code`.
+3. Choose a region closest to where your app is hosted (lower latency between app and DB).
+4. Click **Create**. Provisioning takes a few seconds.
+<callout icon="💡" color="blue_bg">
+	Prisma also offers a no-signup quickstart for local experimentation: running `npx create-db@latest` provisions a temporary Prisma Postgres database (no account needed) that's available for 24 hours, with a claim URL to make it permanent later. Useful for a quick throwaway test, but for this project use a real Console project (above) so the database persists.
+</callout>
+---
+# 3. Get your connection string
+1. Open your database in the Prisma Console.
+2. Click **Connect to your database**.
+3. Click **Generate new connection string** if one isn't already shown.
+4. Copy the connection string.
+<table header-row="true">
+<tr>
+<td>Connection type</td>
+<td>Format</td>
+<td>Use for</td>
+</tr>
+<tr>
+<td>Direct</td>
+<td>`postgres://USER:PASSWORD@db.prisma.io:5432/?sslmode=require`</td>
+<td>Migrations, `prisma studio`, admin tooling — and this project's `DATABASE_URL`, since `prisma/schema.prisma` only defines a single `url` (no separate `directUrl` for a pooled connection)</td>
+</tr>
+<tr>
+<td>Pooled</td>
+<td>`postgres://USER:PASSWORD@pooled.db.prisma.io:5432/?sslmode=require`</td>
+<td>High-concurrency application traffic — only relevant if `prisma/schema.prisma` is later updated to add a `directUrl` and split the two; not needed for this project as configured today</td>
+</tr>
+</table>
+<callout icon="⚠️" color="yellow_bg">
+	Use the **direct** connection string for this project's `DATABASE_URL` unless you've deliberately added `directUrl` support to `prisma/schema.prisma`. Using the pooled string for migrations causes errors; using the direct string for very high-concurrency production traffic can eventually exhaust connections — not a concern at this project's current scale.
+</callout>
+---
+# 4. Add it to your environment
+In your `.env` (copied from `.env.example` per the **Installation Guide**):
+```shell
+DATABASE_URL="postgres://USER:PASSWORD@db.prisma.io:5432/?sslmode=require"
+```
+Use this same variable name/value on every environment (local, staging, production) — create a **separate Prisma Postgres database per environment** rather than sharing one.
+---
+# 5. Generate the client and apply migrations
+```shell
+npm run setup
+```
+Runs `prisma generate && prisma migrate deploy` — generates the Prisma client for `@prisma/client` and applies every migration under `prisma/migrations/` (`Session`, `Quote`, and related tables) to your new database.
+<callout icon="🔍" color="blue_bg">
+	To confirm the tables were created, open the Prisma Console's **Studio** tab (or run `npx prisma studio` locally) and check that `Session` and `Quote` tables exist.
+</callout>
+---
+# 6. Verification
+- [ ] Database created in the Prisma Console under its own project
+- [ ] Connection string copied and set as `DATABASE_URL` in `.env` (or your host's secrets)
+- [ ] `npm run setup` completes with no errors
+- [ ] `Session` and `Quote` tables visible via Prisma Studio or the Console
+- [ ] The app starts (`npm run dev`) without a "table does not exist" error
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Installation Guide** (step 6–7, environment + database setup), **Deployment Guide** (per-environment `DATABASE_URL` and `prisma migrate deploy` in CI/CD).
+</callout>

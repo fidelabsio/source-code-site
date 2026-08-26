@@ -9,8 +9,8 @@ export default function PrivacyPage() {
       titleHighlight="Policy"
       subtitle={`How FIDE LAB (OPC) PRIVATE LIMITED ("FIDE Labs", "we", "us", "our") collects and uses personal data when you visit our website, purchase a source code licence, receive a delivery, contact support, or renew.`}
       version="1.0"
-      effectiveDate="Pending"
-      lastUpdated="Pending"
+      effectiveDate="21 August 2026"
+      lastUpdated="21 August 2026"
       sections={privacyPolicySections}
       ctaHeading="Questions About This Policy?"
       ctaBody="Need clarification about this policy or how it applies to your use of FIDE Labs? Write to us and we'll help."

@@ -1,0 +1,793 @@
+<callout icon="📘" color="blue_bg">
+	This is the complete reference for every HTTP route this app exposes: storefront-facing public APIs, admin-authenticated internal routes, the Shopify OAuth flow, and the mandatory GDPR/app-lifecycle webhooks. Each entry lists its authentication mechanism, request format, response format, and error codes, verified directly against the current source (`app/routes/**`, `app/domain/**/*.server.js`).
+</callout>
+<callout icon="📖" color="blue_bg">
+	New to this codebase? Read the **Installation Guide** and **Shopify Partner Setup Guide** first - this doc assumes the app is already installed and running against a Partner app.
+</callout>
+---
+# 1. Architecture at a glance
+This is a Shopify **React Router (Remix-style)** app. Every file under `app/routes/` is a route. Most route files are a one-line re-export - `export { loader, action } from "../domain/.../x.server.js"` - so the real logic lives in `app/domain/**`.
+- `loader` handles `GET` requests.
+- `action` handles `POST` (and other write) requests.
+- Routing is file-based, driven by `app/routes.js`.
+**Why some endpoints have two paths.** A few storefront endpoints have two route files that serve the exact same handler, for example `api.quote.jsx` and `apps.$proxySubpath.api.quote.jsx`. In production, Shopify's App Proxy strips the `/apps/{subpath}` prefix before forwarding a request to the app, so the real path (`/api/quote`) is what the app sees. Under `shopify app dev`, the CLI forwards the request without stripping that prefix, so without the alias route it would 404. `$proxySubpath` is a wildcard, not a fixed value, so the alias keeps working no matter what `[app_proxy].subpath` is set to. Behavior is identical either way - this is mentioned once here instead of repeating it on every endpoint below.
+## Route map
+<table header-row="true">
+<tr>
+<td>Path</td>
+<td>Methods</td>
+<td>Category</td>
+<td>Auth mechanism</td>
+</tr>
+<tr>
+<td>`/api/quote`</td>
+<td>GET, POST, OPTIONS</td>
+<td>Storefront public</td>
+<td>App Proxy signature</td>
+</tr>
+<tr>
+<td>`/api/config`</td>
+<td>GET, OPTIONS</td>
+<td>Storefront public</td>
+<td>App Proxy signature</td>
+</tr>
+<tr>
+<td>`/api/upload`</td>
+<td>POST, OPTIONS</td>
+<td>Storefront public</td>
+<td>App Proxy signature</td>
+</tr>
+<tr>
+<td>`/api/quote/:id/pdf`</td>
+<td>GET</td>
+<td>Storefront public</td>
+<td>Per-quote HMAC token</td>
+</tr>
+<tr>
+<td>`/cart`</td>
+<td>GET, OPTIONS</td>
+<td>Storefront public</td>
+<td>None (cosmetic only)</td>
+</tr>
+<tr>
+<td>`/health`</td>
+<td>GET</td>
+<td>Public</td>
+<td>None</td>
+</tr>
+<tr>
+<td>`/api/reply`</td>
+<td>POST</td>
+<td>Admin-internal</td>
+<td>Shopify admin session</td>
+</tr>
+<tr>
+<td>`/api/export`</td>
+<td>GET</td>
+<td>Admin-internal</td>
+<td>Shopify admin session</td>
+</tr>
+<tr>
+<td>`/api/analytics`</td>
+<td>GET</td>
+<td>Admin-internal</td>
+<td>Shopify admin session</td>
+</tr>
+<tr>
+<td>`/app/*`</td>
+<td>GET, POST</td>
+<td>Admin-internal</td>
+<td>Shopify admin session</td>
+</tr>
+<tr>
+<td>`/auth/*`</td>
+<td>GET</td>
+<td>OAuth</td>
+<td>Shopify OAuth handshake</td>
+</tr>
+<tr>
+<td>`/auth/login`</td>
+<td>GET, POST</td>
+<td>OAuth</td>
+<td>Shop-domain form</td>
+</tr>
+<tr>
+<td>`/webhooks/app/scopes_update`</td>
+<td>POST</td>
+<td>Webhook</td>
+<td>Shopify HMAC</td>
+</tr>
+<tr>
+<td>`/webhooks/app/uninstalled`</td>
+<td>POST</td>
+<td>Webhook</td>
+<td>Shopify HMAC</td>
+</tr>
+<tr>
+<td>`/webhooks/customers/data_request`</td>
+<td>POST</td>
+<td>Webhook (GDPR)</td>
+<td>Shopify HMAC</td>
+</tr>
+<tr>
+<td>`/webhooks/customers/redact`</td>
+<td>POST</td>
+<td>Webhook (GDPR)</td>
+<td>Shopify HMAC</td>
+</tr>
+<tr>
+<td>`/webhooks/shop/redact`</td>
+<td>POST</td>
+<td>Webhook (GDPR)</td>
+<td>Shopify HMAC</td>
+</tr>
+</table>
+---
+# 2. Authentication
+There is no single API key that covers everything in this app. Five different mechanisms are used, depending on who is calling the route.
+<table header-row="true">
+<tr>
+<td>Mechanism</td>
+<td>Used by</td>
+<td>Section</td>
+</tr>
+<tr>
+<td>Shopify admin session</td>
+<td>Every `/app/*` route, plus `/api/reply`, `/api/export`, `/api/analytics`</td>
+<td>2.1</td>
+</tr>
+<tr>
+<td>App Proxy signature</td>
+<td>`/api/quote`, `/api/config`, `/api/upload`</td>
+<td>2.2</td>
+</tr>
+<tr>
+<td>Per-quote HMAC token</td>
+<td>`/api/quote/:id/pdf`</td>
+<td>2.3</td>
+</tr>
+<tr>
+<td>Webhook HMAC</td>
+<td>All five `/webhooks/*` routes</td>
+<td>2.4</td>
+</tr>
+<tr>
+<td>OAuth handshake</td>
+<td>`/auth/*`, `/auth/login`</td>
+<td>2.5</td>
+</tr>
+</table>
+**SDK setup** (`app/core/shopify/shopify.server.js`): the app initializes one `@shopify/shopify-app-react-router` instance with:
+- `apiVersion: ApiVersion.October25` ("2025-10")
+- `sessionStorage: new PrismaSessionStorage(prisma)` - sessions live in this app's own Postgres `Session` table, not in cookies
+- `authPathPrefix: "/auth"`
+- `distribution: AppDistribution.AppStore`
+- scopes read from `process.env.SCOPES`
+<callout icon="⚠️" color="yellow_bg">
+	`shopify.app.toml` declares `[webhooks] api_version = "2026-07"`, while the app code sets `ApiVersion.October25` ("2025-10"). These control different things (webhook payload version vs. Admin API client version), but the mismatch is worth reconciling with whoever owns the Partner app config.
+</callout>
+## 2.1 Shopify admin session
+Call: `authenticate.admin(request)`.
+This is the SDK's standard guard for anything running inside the embedded Shopify admin. It validates the request's session token (a JWT) against the stored session, or triggers the OAuth/token-exchange flow if there isn't one yet. On failure it throws its own `Response` - a redirect to OAuth for a page load, or a 401/403 for a fetch call - before any route code runs. No route in this app adds custom handling on top of that.
+## 2.2 App Proxy signature
+Call: `authenticate.public.appProxy(request)`.
+Verifies the HMAC `signature` query parameter that Shopify attaches when it forwards a storefront request through the App Proxy, and returns a verified `session.shop`. The shop domain always comes from that verification - never from a client-supplied field. If `session.shop` can't be resolved, the route returns:
+```json
+{ "error": "Shop not installed" }
+```
+with HTTP status `401`.
+## 2.3 Per-quote PDF token
+Used only by `GET /api/quote/:id/pdf?token=<hex>` - no Shopify auth is involved at all.
+`verifyQuoteToken(id, token)` (`app/domain/pdf/pdfToken.server.js`) recomputes the expected token and compares it to the one supplied:
+```javascript
+signQuoteToken(quoteId) =
+  crypto.createHmac("sha256", secret).update(String(quoteId)).digest("hex")
+```
+The comparison uses `crypto.timingSafeEqual`, a deliberate choice to prevent timing attacks. The secret comes from `process.env.ENCRYPTION_KEY`, falling back to `process.env.SHOPIFY_API_SECRET`. In production, if neither is set the app refuses to start (`[SECURITY]` error); outside production it silently falls back to the hardcoded string "dev-insecure-pdf-token-secret".
+<callout icon="⚠️" color="yellow_bg">
+	This token never expires. It's a deterministic HMAC of the quote id with no timestamp or nonce, so it stays valid indefinitely as long as the secret doesn't change. Anyone who obtains the emailed link can reuse it at any time. Worth knowing before treating the PDF link as a one-time or time-boxed credential.
+</callout>
+## 2.4 Webhook HMAC
+Call: `authenticate.webhook(request)`.
+Verifies the `X-Shopify-Hmac-Sha256` header against the raw request body, using the app's secret key with a constant-time comparison. A missing or invalid signature makes this call throw, which Shopify treats as a failed delivery and retries later. On success it also hands the handler `shop`, `topic`, and the parsed `payload`.
+## 2.5 OAuth install / login flow
+- `GET /auth/*` runs `authCallbackLoader`, which calls `authenticate.admin(request)`. That call performs the actual OAuth handshake (state validation, token exchange) and saves the resulting session. It throws its own redirect on success, so this loader rarely returns anything itself.
+- `GET /auth/login` with no `shop`/`host` param shows a plain, non-embedded "install from the App Store" page. If `shop`/`host` **is** present (a returning merchant whose session expired), it redirects straight to `/auth?<params>` instead of showing the form.
+- `POST /auth/login` validates the submitted shop domain via the SDK's `login(request)` and maps errors (`MissingShop`, `InvalidShop`) to form messages.
+<callout icon="ℹ️" color="gray_bg">
+	`shopify.app.toml` declares three OAuth redirect URLs: `/auth/callback`, `/auth/tokens`, and `/api/auth`. The first two are covered by the `auth.$.jsx` catch-all. No route file matching `/api/auth` exists under `app/routes/` - flagged here as an open question rather than guessed at.
+</callout>
+## 2.6 CORS
+`app/utils/cors.js` exports one helper, applied to `/api/quote`, `/api/config`, `/api/upload`, and `/cart`:
+```javascript
+function buildCorsHeaders(methods = "GET, OPTIONS") {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": methods,
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
+```
+The origin policy is fully open (`*`). That's intentional: real protection comes from the App Proxy signature check on each route, not from CORS. Only the `Content-Type` header is allowed through preflight. `/api/reply`, `/api/quote/:id/pdf`, and `/health` don't set these headers at all - they're either same-origin admin calls or direct downloads, not cross-origin fetches.
+---
+# 3. Storefront-facing public APIs
+Called from the storefront theme extension or a customer's browser. No Shopify admin session is involved in any of these.
+## GET / POST /api/quote
+Route: `app/routes/api.quote.jsx` -> `app/domain/quotes/storefrontQuote.server.js` -> `app/domain/quotes/quotes.server.js`
+**Description:** `GET` returns the theme block's display settings. `POST` submits a new quote request.
+**Auth:** App Proxy signature (see 2.2 above).
+**Request - GET:** no parameters beyond what App Proxy verifies.
+**Request - POST:** JSON body.
+```json
+{
+  "productId": "123456",
+  "productTitle": "Widget",
+  "variantId": "789",
+  "variantTitle": "Blue / Large",
+  "customerName": "Jane Doe",
+  "customerEmail": "jane@example.com",
+  "customerPhone": "+1 5551234567",
+  "companyName": "Acme Co",
+  "quantity": "3",
+  "message": "Need this by Friday",
+  "cartItems": [
+    { "productId": "123456", "variantId": "789", "productTitle": "Widget", "quantity": 3, "price": "19.99", "offerPrice": "15.00" }
+  ],
+  "formFields": [{ "label": "Delivery Date", "value": "2026-08-01" }]
+}
+```
+```bash
+# Illustrative only - this route only accepts requests forwarded through
+# Shopify's App Proxy, so a bare curl call will get a 401.
+curl -X POST "https://{shop}.myshopify.com/apps/{subpath}/api/quote" \
+  -H "Content-Type: application/json" \
+  -d '{"customerName":"Jane Doe","customerEmail":"jane@example.com","productId":"123456"}'
+```
+Validation rules:
+- `customerName` and `customerEmail` (trimmed) are required.
+- Every field the shop's Form Builder schema marked `required` must be present in `formFields`, or the request is rejected with the missing field names. This check fails open on unexpected errors (e.g. a corrupt stored schema), so a schema bug can never block submissions.
+- There is no spam or rate limiting on this endpoint.
+Side effects, all fire-and-forget (a failure here is logged but never changes the response): a sequential quote number is assigned, a merchant-notification email goes out if one is configured, and a buyer-confirmation email goes out with a tokenized PDF link unless auto-response is disabled.
+**Response - GET** (`200`):
+```json
+{
+  "isEnabled": true,
+  "hideForGuestsOnly": false,
+  "buttonText": "Request a Quote",
+  "buttonColor": "#1a1a18",
+  "buttonTextColor": "#ffffff",
+  "showPhone": true,
+  "showCompany": true,
+  "showQuantity": true,
+  "showMessage": true,
+  "thankYouMessage": "Thank you! We will be in touch shortly."
+}
+```
+**Response - POST success** (`200`):
+```json
+{ "success": true, "quoteId": "clx1a2b3c4d5" }
+```
+**Errors:**
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Body</td>
+<td>Cause</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Invalid JSON"}`</td>
+<td>Request body isn't valid JSON</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Name and email are required"}`</td>
+<td>`customerName` or `customerEmail` missing/blank</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Please fill in all required fields: <labels>"}`</td>
+<td>A required Form Builder field is missing from `formFields`</td>
+</tr>
+<tr>
+<td>401</td>
+<td>`{"error": "Shop not installed"}`</td>
+<td>App Proxy signature didn't resolve a shop</td>
+</tr>
+<tr>
+<td>405</td>
+<td>`{"error": "Method not allowed"}`</td>
+<td>Verb other than GET/POST/OPTIONS</td>
+</tr>
+<tr>
+<td>500</td>
+<td>`{"error": "Something went wrong. Please try again."}`</td>
+<td>Database write failed</td>
+</tr>
+</table>
+## GET /api/config
+Route: `app/routes/api.config.jsx` -> `app/domain/shop/shopConfig.server.js`
+**Description:** returns the full widget/branding/behavior configuration the storefront extension renders itself with. Read-only.
+**Auth:** App Proxy signature (see 2.2 above).
+**Request:** no parameters beyond what App Proxy verifies.
+```bash
+# Illustrative only - reachable in production only through the App Proxy.
+curl "https://{shop}.myshopify.com/apps/{subpath}/api/config"
+```
+**Response** (`200`, cached `public, max-age=5`) - a large flat object covering targeting rules, price-hiding rules, button/modal styling, widget/toast styling, and the parsed Form Builder schema. Four color fields are fixed and not merchant-configurable: `accentColor`, `successColor`, `warningColor`, `errorColor`.
+```json
+{
+  "isEnabled": true,
+  "hidePriceMode": "specific_products",
+  "buttonText": "Request a Quote",
+  "buttonColor": "#1a1a18",
+  "targetProducts": [{ "productId": "123", "productTitle": "Widget", "productHandle": "widget" }],
+  "formSchema": { "contactElements": [], "shippingElements": [] }
+}
+```
+**Errors:**
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Body</td>
+<td>Cause</td>
+</tr>
+<tr>
+<td>401</td>
+<td>`{"error": "Shop not installed"}`</td>
+<td>App Proxy signature didn't resolve a shop</td>
+</tr>
+<tr>
+<td>405</td>
+<td>`{"error": "Method not allowed"}`</td>
+<td>Any verb other than GET/OPTIONS - this endpoint is read-only</td>
+</tr>
+</table>
+## POST /api/upload
+Route: `app/routes/api.upload.jsx` -> `app/domain/upload/upload.server.js` -> `app/lib/cloudinary.server.js`
+**Description:** uploads file attachments (e.g. a photo attached to a quote request) to Cloudinary and returns their URLs.
+**Auth:** App Proxy signature (see 2.2 above).
+**Request:** `multipart/form-data`, field name `files[]`, repeatable.
+```bash
+curl -X POST "https://{shop}.myshopify.com/apps/{subpath}/api/upload" \
+  -F "files[]=@photo1.jpg" \
+  -F "files[]=@photo2.png"
+```
+Limits, enforced by the route itself rather than by Cloudinary:
+- Up to 5 files per request.
+- Up to 10 MB each.
+- No file-type restriction - any file type under the size limit is accepted.
+**Response** (`200`):
+```json
+{ "urls": ["https://res.cloudinary.com/.../quote-requests/example-myshopify-com/abc123.jpg"] }
+```
+**Errors:**
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Body</td>
+<td>Cause</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Too many files. Maximum 5 allowed."}`</td>
+<td>More than 5 files</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "\"<filename>\" exceeds the 10 MB limit."}`</td>
+<td>A file over 10 MB</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "No files provided"}`</td>
+<td>Zero valid files in the request</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Invalid multipart data"}`</td>
+<td>Body couldn't be parsed</td>
+</tr>
+<tr>
+<td>401</td>
+<td>`{"error": "Shop not installed"}`</td>
+<td>App Proxy signature didn't resolve a shop</td>
+</tr>
+<tr>
+<td>500</td>
+<td>`{"error": "Upload failed. Please try again."}`</td>
+<td>Cloudinary returned an error</td>
+</tr>
+</table>
+## GET /api/quote/:id/pdf
+Route: `app/routes/api.quote.$id.pdf.jsx` (self-contained)
+**Description:** streams the PDF for one quote. This is the link sent in the buyer-confirmation email.
+**Auth:** per-quote HMAC token (see 2.3 above), passed as `?token=`.
+**Request:**
+```bash
+curl "https://app.example.com/api/quote/clx1a2b3c4d5/pdf?token=<hmac-hex>" -o quote.pdf
+```
+**Response:** on success, `200` with the PDF as the body, `Content-Type: application/pdf`, `Content-Disposition: attachment`, `Cache-Control: no-store`.
+**Errors:**
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Body</td>
+<td>Cause</td>
+</tr>
+<tr>
+<td>403</td>
+<td>"Forbidden" (plain text)</td>
+<td>Token missing, invalid, or mismatched</td>
+</tr>
+<tr>
+<td>404</td>
+<td>"Not found" (plain text)</td>
+<td>Token valid but no matching quote</td>
+</tr>
+<tr>
+<td>500</td>
+<td>"Could not generate PDF" (plain text)</td>
+<td>PDF rendering threw an error</td>
+</tr>
+</table>
+## GET /cart
+Route: `app/routes/cart.jsx` -> `app/domain/cart/cart.server.js`
+**Description:** serves a static, self-contained cart page (no React). Client-side JavaScript manages the entire cart in `localStorage` and posts directly to `/apps/{subpath}/api/quote` on submit - the server never sees individual cart items.
+**Auth:** none, deliberately. `shop` is read from the `X-Shopify-Shop-Domain` header or a `?shop=` query param and is never HMAC-verified. That's acceptable here because `shop` only affects cosmetic branding on this page - it's never used to read or write quote or customer data.
+**Request:**
+```bash
+curl "https://app.example.com/apps/{subpath}/cart" -H "X-Shopify-Shop-Domain: example.myshopify.com"
+```
+**Response:** `200`, `text/html`.
+## GET /health
+Route: `app/routes/health.jsx` (self-contained)
+**Description:** basic liveness check.
+**Auth:** none.
+**Request:**
+```bash
+curl "https://app.example.com/health"
+```
+**Response** (`200`, always this shape, no error branches):
+```json
+{ "status": "ok", "timestamp": "2026-07-31T09:00:00.000Z" }
+```
+---
+# 4. Admin-authenticated internal routes
+These run inside the embedded Shopify admin, guarded by `authenticate.admin(request)` (see 2.1 above). Most `POST` actions here dispatch on a `formData.get("intent")` value, so a single route handles several distinct operations.
+## POST /api/reply
+Route: `app/routes/api.reply.jsx` -> `app/domain/support/reply.server.js`
+<callout icon="ℹ️" color="gray_bg">
+	This lives under `/api/*` but is not storefront-public - it needs a full admin session, and is called from the embedded dashboard when a merchant replies to a quote.
+</callout>
+**Description:** sends the merchant's reply to a quote by email and marks the quote as replied.
+**Auth:** Shopify admin session. `GET` always returns `405` - this route is action-only.
+**Request:**
+```json
+{ "quoteId": "clx1a2b3c4d5", "replyText": "Thanks for reaching out - here's your quote." }
+```
+**Response** (`200`):
+```json
+{ "success": true, "customerEmail": "jane@example.com" }
+```
+The reply email is sent fire-and-forget; the quote is updated with `merchantReply` and `status: "replied"`.
+**Errors:**
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Body</td>
+<td>Cause</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "Invalid JSON"}`</td>
+<td>Request body isn't valid JSON</td>
+</tr>
+<tr>
+<td>400</td>
+<td>`{"error": "quoteId and replyText are required"}`</td>
+<td>Missing `quoteId` or blank `replyText`</td>
+</tr>
+<tr>
+<td>404</td>
+<td>`{"error": "Quote not found"}`</td>
+<td>No matching quote for this shop</td>
+</tr>
+<tr>
+<td>405</td>
+<td>`{"error": "Method not allowed"}`</td>
+<td>GET, or any verb other than POST</td>
+</tr>
+</table>
+## GET /api/export
+Route: `app/routes/api.export.jsx` (`csvExportLoader`) -> `app/domain/export/exportQuotes.server.js`
+**Description:** downloads quotes as a CSV file. Loader only - there's no `action`, so any non-GET verb gets React Router's default `405`.
+**Auth:** Shopify admin session.
+**Request:** query parameters `status` (exact match), `from` / `to` (inclusive `createdAt` bounds). No pagination - every matching row is streamed.
+```javascript
+GET /api/export?status=new&from=2026-07-01&to=2026-07-31
+```
+**Response:** `200`, `text/csv`, `Content-Disposition: attachment; filename="quotes-<date>.csv"`. Columns: `ID, Status, Customer Name, Email, Phone, Company, Product, Quantity, Message, Quoted Price, Currency, Created, Updated`.
+## GET /api/analytics
+Route: `app/routes/api.analytics.jsx` -> `app/domain/analytics/analytics.server.js`
+**Description:** dashboard metrics for the current shop. Loader only.
+**Auth:** Shopify admin session. No parameters - scoped to `session.shop`.
+**Response** (`200`, `Cache-Control: private, max-age=60`):
+```json
+{
+  "total": 128,
+  "thisMonth": 24,
+  "newCount": 5,
+  "replied": 40,
+  "responseRate": 31,
+  "statusBreakdown": { "new": 5, "read": 83, "replied": 40 },
+  "topProducts": [{ "title": "Widget Pro", "count": 12 }],
+  "dailyTrend": [{ "date": "2026-07-01", "count": 3 }]
+}
+```
+`dailyTrend` is always exactly 30 entries, zero-filled for days with no activity. `responseRate` is `round(replied / total * 100)`.
+## GET /app
+Route: `app/routes/app.jsx`, inline loader (root layout)
+Calls `authenticate.admin(request)` purely to gate the route, then returns `{ "apiKey": "...", "buttonColor": "..." }` used to configure the embedded app shell and Polaris button colors. No `action`.
+## GET /app (dashboard)
+Route: `app/routes/app._index.jsx` -> `app/domain/shop/dashboard.server.js`
+On load, writes an `app_url` shop metafield (once per shop per server process) and creates a default `quoteConfig` row if none exists yet. Returns shop stats, the 5 most recent quotes, top products, currency, branding, and dashboard text labels. No `action`.
+## /app/quotes - quote list
+Route: `app/routes/app.quotes.jsx` -> `app/domain/quotes/quotesList.server.js`
+**GET** - query parameters:
+- `page` (default `1`)
+- `tab`: `all` / `unread` / `read` / `cancelled` / `accepted` / `done`
+- `q`: free-text search across customer name, email, product title, company
+- `sort`: `date_desc` (default) / `date_asc` / `name_asc` / `name_desc`
+Returns an 8-row page, plus `tabCounts`, `totalPages`, branding, and labels.
+**POST** - dispatches on `intent`:
+<table header-row="true">
+<tr>
+<td>intent</td>
+<td>fields</td>
+<td>behavior</td>
+</tr>
+<tr>
+<td>`bulkDelete`</td>
+<td>`ids` (comma-separated)</td>
+<td>Deletes all matching quotes for this shop</td>
+</tr>
+<tr>
+<td>`markAsRead`</td>
+<td>`quoteId`</td>
+<td>Sets `status: "read"`</td>
+</tr>
+<tr>
+<td>`convertToDraft`</td>
+<td>`quoteId`</td>
+<td>Creates a Shopify draft order via Admin GraphQL; stores `draftOrderName`/`checkoutLink`</td>
+</tr>
+<tr>
+<td>`duplicate`</td>
+<td>`quoteId`</td>
+<td>Creates a new `status: "new"` quote copying customer/product fields</td>
+</tr>
+<tr>
+<td>`delete`</td>
+<td>`quoteId`</td>
+<td>Hard-deletes the row</td>
+</tr>
+<tr>
+<td>`acceptQuote`</td>
+<td>`quoteId`</td>
+<td>Sets `quoteStatus: "accepted"`; sends the accept email if enabled</td>
+</tr>
+<tr>
+<td>`rejectQuote`</td>
+<td>`quoteId`</td>
+<td>Sets `quoteStatus: "rejected"`; sends the reject email if enabled</td>
+</tr>
+</table>
+Every branch returns `{ "success": true, "intent": "<intent>" }` (some add extra fields, like `draftOrderName`). Missing `quoteId` returns `{"error": "Missing quoteId"}`; not found returns `{"error": "Quote not found"}`; an unrecognized intent returns `{"error": "Unknown action"}`.
+## /app/quote/:id - quote detail
+Route: `app/routes/app.quote.$id.jsx` -> `app/domain/quotes/quoteDetail.server.js`
+This is the largest handler in the app - 11 intents.
+**GET** - `:id === "new"` returns an in-memory scaffold with no database row yet. An existing id returns the full quote, linked product data, previous/next navigation, the customer's total quote count, and saved email/PDF templates. Viewing a `"new"`-status quote flips it to `"viewed"`/`"read"` as a side effect. A missing id returns `404`.
+**POST** - `updateQuote` (create or edit) is validated server-side with Zod: `customerName`, `customerEmail`, `customerPhone` are required, the full shipping address is required, and at least one line item must have `price > 0`. A validation failure looks like:
+```json
+{
+  "error": "Validation failed",
+  "fieldErrors": {
+    "customerEmail": "Enter a valid email",
+    "lineItems": "All products need a price greater than 0"
+  }
+}
+```
+All intents:
+<table header-row="true">
+<tr>
+<td>intent</td>
+<td>behavior</td>
+</tr>
+<tr>
+<td>`updateQuote` (new)</td>
+<td>Creates the quote, assigns a quote number, redirects to `/app/quote/:newId`</td>
+</tr>
+<tr>
+<td>`updateQuote` (existing)</td>
+<td>Updates the row</td>
+</tr>
+<tr>
+<td>`updateStatus`</td>
+<td>Sets `quoteStatus` to the submitted value verbatim</td>
+</tr>
+<tr>
+<td>`accept`</td>
+<td>Sets `quoteStatus: "accepted"`; builds a checkout link via draft order, falling back to a cart permalink</td>
+</tr>
+<tr>
+<td>`acceptWithEmail`</td>
+<td>Same as `accept`, plus sends a merchant-templated email</td>
+</tr>
+<tr>
+<td>`reject` / `rejectWithEmail`</td>
+<td>Sets `quoteStatus: "rejected"`, optionally with a templated email</td>
+</tr>
+<tr>
+<td>`paymentReceived`</td>
+<td>Sets `quoteStatus: "paid"`</td>
+</tr>
+<tr>
+<td>`reopen`</td>
+<td>Reverts `quoteStatus: "viewed"`</td>
+</tr>
+<tr>
+<td>`duplicate`</td>
+<td>Creates a fresh `"new"`-status copy</td>
+</tr>
+<tr>
+<td>`convertToDraft`</td>
+<td>Creates a Shopify draft order from the current line items</td>
+</tr>
+<tr>
+<td>`addNote`</td>
+<td>Appends `{text, postedAt}` to `notesHistory`</td>
+</tr>
+<tr>
+<td>`updateTags`</td>
+<td>Overwrites the `tags` column</td>
+</tr>
+</table>
+<callout icon="ℹ️" color="gray_bg">
+	**Security detail:** on `acceptWithEmail`, a merchant-supplied `emailCheckoutUrl` is only used if it points at a Shopify-owned domain (`.myshopify.com`, `.shopify.com`, `.shopifypreview.com`, `shop.app`) or the shop's own domain - this enforces Shopify App Store policy 1.1.2. Any other URL is silently dropped in favor of the auto-generated draft-order link, and the substitution is logged server-side.
+</callout>
+## /app/quote-settings
+Route: `app/routes/app.quote-settings.jsx` -> `app/domain/quotes/quoteSettings.server.js`
+**GET** - creates default `quoteConfig`/`formSchema` rows on first visit; returns config, target products, form schema, and branding.
+**POST** - 3 intents:
+- `sendTestQuote` - runs a payload through the real quote-creation flow to preview the submit/email experience without a real customer.
+- `saveTags` - overwrites the required-tags list.
+- `saveAll` - rewrites the full configuration (roughly 40 fields covering targeting, price-hiding, and button/modal/widget/toast styling). Any failure here returns a single generic message, `{"error": "We couldn't save your settings. Please try again."}`, regardless of the underlying cause - internals are logged server-side only, never returned to the merchant.
+## /app/settings
+Route: `app/routes/app.settings.jsx` -> `app/domain/shop/shopSettings.server.js`
+**GET** - returns the `EmailConfig` row, including its encrypted secret columns (`smtpPassEnc`, `apiKeyEnc`). The UI must render these as a placeholder, never the raw value.
+**POST** - 3 intents:
+<table header-row="true">
+<tr>
+<td>intent</td>
+<td>behavior</td>
+</tr>
+<tr>
+<td>`saveSmtp`</td>
+<td>Upserts SMTP config. A secret is only re-encrypted if it's present and not the literal placeholder string "********" - that string means "leave the stored value unchanged"</td>
+</tr>
+<tr>
+<td>`toggleEmail`</td>
+<td>Flips one boolean column, checked against an allow-list (`notificationEnabled`, `autoResponseEnabled`, `acceptQuoteEnabled`, `rejectQuoteEnabled`)</td>
+</tr>
+<tr>
+<td>`testSmtp`</td>
+<td>Sends a live test email with no database write</td>
+</tr>
+</table>
+All user-facing error strings in this route come from `app/config/email/text-labels.json`, not from hardcoded strings.
+## GET /app/export-quotes
+Route: `app/routes/app.export-quotes.jsx` (`matchingQuotesLoader`) -> `app/domain/export/exportQuotes.server.js`
+Previews the full set of quotes matching the same filters used by `/api/export` (`ids`, or `tab` + `q`), without pagination - this is what the export dialog uses to show a live count before the actual CSV download.
+## /app/email-edit/:id
+Route: `app/routes/app.email-edit.$id.jsx` -> `app/domain/email/emailTemplateEditor.server.js`
+`:id` is one of `notification`, `auto-response`, `accept-quote`, `reject-quote`.
+**GET** - returns the saved template (or `null`) plus its enabled/disabled toggle and preview colors.
+**POST** - `testEmail` sends a live preview with no database write. The default branch (no intent) saves `{heading, content, action, redirectUrl, status}` as a JSON string in the `htmlBody` column - despite the column name, this is structured data, not raw HTML; the real HTML is assembled later, at send time.
+## /app/pdf-edit/:id
+Route: `app/routes/app.pdf-edit.$id.jsx` -> `app/domain/pdf/pdfTemplateEditor.server.js`
+`:id` is `quote` or `invoice`, stored internally in the same `EmailTemplate` table under the key `pdf-<id>` (reused rather than adding a new table).
+**GET** - returns the saved branding fields (or `null`).
+**POST** - a single branch, no intent dispatch: saves `documentTitle`, company name/logo/address/phone/email, header/footer notes, `primaryColor`, and `status`. Always responds `{"success": true}` - there's no validation on this route yet.
+---
+# 5. Auth / OAuth routes
+## GET /auth/*
+Route: `app/routes/auth.$.jsx` -> `app/domain/auth/auth.server.js` (`authCallbackLoader`, `authHeaders`)
+The OAuth catch-all, under `authPathPrefix: "/auth"`. Calls `authenticate.admin(request)`, which runs the handshake/token exchange and saves the session, throwing its own redirect on success. The `headers` export sets the CSP `frame-ancestors` headers required to render inside the Shopify Admin iframe.
+## GET / POST /auth/login
+Route: `app/routes/auth.login/route.jsx` -> `app/domain/auth/auth.server.js` (`loginLoader`, `loginAction`)
+**GET** - with no `shop`/`host`, shows a plain "install from the App Store" page. With `shop`/`host` present, redirects immediately to `/auth?<params>` instead.
+**POST** - validates the submitted shop domain and maps errors to form messages.
+---
+# 6. Webhook endpoints
+All five share the same verification:
+```javascript
+const { shop, payload, session } = await authenticate.webhook(request);
+```
+This checks the `X-Shopify-Hmac-Sha256` header against the raw body. A missing or invalid signature throws, and Shopify retries delivery. Every route file below is a one-line re-export - all the logic lives in the matching `app/domain/webhooks/*.server.js` file.
+## POST /webhooks/app/scopes_update
+File: `app/domain/webhooks/appScopesUpdate.server.js`
+Fires when a merchant approves a changed scope grant. Updates the stored session's `scope` column from `payload.current`. Returns `200` with an empty body.
+<callout icon="⚠️" color="yellow_bg">
+	This is the only one of the five webhooks with no try/catch around its database write - an unhandled error here produces a non-200 response and triggers a Shopify retry, unlike the other four.
+</callout>
+## POST /webhooks/app/uninstalled
+File: `app/domain/webhooks/appUninstalled.server.js`
+Fires immediately on uninstall. Deliberately does **not** delete business data - it only deletes session rows for the shop. That gives a roughly 48-hour grace period (until `shop/redact` fires) during which a reinstall recovers all merchant data intact. Always returns `200`.
+## POST /webhooks/customers/data_request (GDPR - right of access)
+File: `app/domain/webhooks/customersDataRequest.server.js`
+Fires when a customer asks for a copy of their data. Looks up all quotes for `payload.customer.email`. If any exist and a merchant notification address is configured, it emails the merchant (not the customer) a data-access report - the merchant is the GDPR data controller and relays the data onward. Always returns `200` with an empty body; per Shopify's own guidance, only acknowledgement of receipt is required.
+## POST /webhooks/customers/redact (GDPR - right to erasure)
+File: `app/domain/webhooks/customersRedact.server.js`
+Anonymizes rather than hard-deletes matching quotes: name, email, phone, company, message, and all free-text/history fields are cleared or set to "[redacted]". Operational fields (status, quantity, product, quote number, timestamps) are left intact so historical analytics aren't skewed. Always returns `200`.
+## POST /webhooks/shop/redact (GDPR - full shop purge)
+File: `app/domain/webhooks/shopRedact.server.js`
+Fires roughly 48 hours after uninstall, on Shopify's own schedule. Checks for an active session first - if one exists (the merchant reinstalled), deletion is skipped entirely. Otherwise it purges every shop-scoped table (quotes, targeting rules, price-hiding rules, config, email templates, form schema, general settings, sessions) using `Promise.allSettled`, so one failing table doesn't block the rest. Always returns `200`.
+---
+# 7. Error codes reference
+<table header-row="true">
+<tr>
+<td>Status</td>
+<td>Meaning in this app</td>
+<td>Typical routes</td>
+</tr>
+<tr>
+<td>400</td>
+<td>Invalid JSON/multipart body, or a required field is missing/invalid</td>
+<td>`/api/quote`, `/api/upload`, `/api/reply`</td>
+</tr>
+<tr>
+<td>401</td>
+<td>App Proxy signature didn't resolve a shop</td>
+<td>`/api/quote`, `/api/config`, `/api/upload`</td>
+</tr>
+<tr>
+<td>403</td>
+<td>PDF token missing, malformed, or mismatched</td>
+<td>`/api/quote/:id/pdf`</td>
+</tr>
+<tr>
+<td>404</td>
+<td>Record not found, scoped to the authenticated/verified shop</td>
+<td>`/api/reply`, `/api/quote/:id/pdf`, `/app/quote/:id`</td>
+</tr>
+<tr>
+<td>405</td>
+<td>Verb not supported by this route</td>
+<td>`/api/config`, `/api/reply`, `/api/quote`</td>
+</tr>
+<tr>
+<td>500</td>
+<td>Unhandled server error - internals are never leaked in the response, only logged</td>
+<td>`/api/quote`, `/api/upload`, `/api/quote/:id/pdf`</td>
+</tr>
+<tr>
+<td>200 (always)</td>
+<td>All five webhook handlers - Shopify only needs acknowledgement of receipt</td>
+<td>`/webhooks/*`</td>
+</tr>
+</table>
+`/app/*` `POST` actions mostly skip HTTP status codes for business errors - they return `200` with an `{"error": "..."}` body instead, letting the UI branch on the payload rather than the status code. Real `401`/redirects for auth failures happen inside `authenticate.admin` / `authenticate.public.appProxy` / `authenticate.webhook`, before any route code runs.
+---
+# 8. Known caveats
+<callout icon="⚠️" color="yellow_bg">
+	Flagged during this documentation pass - worth a look before relying on the affected behavior.
+	- **API version mismatch:** the Admin API client uses "2025-10"; `shopify.app.toml` declares "2026-07" for webhook payloads.
+	- **PDF download tokens never expire** (see 2.3) - a deterministic HMAC with no timestamp or nonce.
+	- **`/api/auth`** is a declared OAuth redirect URL in `shopify.app.toml`, but no matching route file exists under `app/routes/`.
+	- **`registerWebhooks`** is exported from `shopify.server.js`, but no call site was found in the auth/webhook code - webhook subscriptions appear to be managed entirely through `shopify.app.toml` + `shopify app deploy`.
+</callout>
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Installation Guide**, **Deployment Guide**, **Shopify Partner Setup Guide**.
+</callout>

@@ -1,0 +1,133 @@
+Merchant-facing, click-by-click walkthroughs for each feature of the app, as seen inside the Shopify Admin. Screenshots from the live admin UI are referenced inline in the original documentation source; they are omitted from this PDF and marked with a screenshot placeholder — the numbered steps below each one describe exactly what that screenshot shows.
+---
+## Hide Price
+#### If you don't want customers to see product pricing:
+1. Open **Apps → Select your APP → Quote Settings**.
+2. Scroll to the **Hide Price** section.
+3. Choose where prices should be hidden:
+	- All products
+	- Specific collections
+	- Hand-picked products
+4. Select the pages where prices will be hidden.
+5. Hide the **Add to Cart** and **Buy Now** buttons (Optional).
+6. Choose whether to display replacement text when prices are hidden.
+7. Click **Save**.
+![](screenshot)
+---
+## Request Quote
+#### 1. General Settings — configure where and how the Request Quote button appears on your storefront.
+1. Open **Apps → Select your APP → Quote Settings**.
+2. Select where the Request Quote button should appear.
+3. Choose how the button behaves.
+4. Configure customer visibility if required.
+![](screenshot)
+> 💡 **Tip:** Use **All Products** to enable the Request Quote button across your entire store.
+#### 2. Button Style — customize the appearance of the Request Quote button to match your store's branding.
+1. Enter the button label.
+2. Choose the text and background colours.
+3. Adjust the text size.
+4. Save your changes.
+![](screenshot)
+#### 3. Quote Widget — configure the floating Quote Widget displayed on your storefront.
+1. Enable the Quote Widget.
+2. Set the widget label.
+3. Choose its position.
+4. Customize the widget colours.
+![](screenshot)
+#### 4. Toast Notifications — customize the notification messages displayed after customer actions.
+1. Enable toast notifications.
+2. Edit the notification messages.
+3. Customize the appearance.
+4. Select the notification position.
+![](screenshot)
+---
+## Quote Cart
+#### 1. View Quote Details — review all information submitted with a customer's quote request.
+1. Open **Apps → Select your APP → Dashboard**.
+2. From the **Recent Quotes** section, click **View all** to open the Quote List.
+![](screenshot)
+**OR** Click **Quote List** from the left sidebar.
+![](screenshot)
+1. Open a quote from the **Quote List**.
+#### 2. Edit Customer Information — update customer and shipping information before responding to the quote.
+1. From the Quote Details page, click **Edit** in the Customer section.
+![](screenshot)
+1. Update the customer information or shipping address as required.
+![](screenshot)
+1. Click **Done** to finish editing.
+#### 3. Save Quote Changes — save any updates made to the quote before responding to the customer.
+1. Review the updated quote information.
+2. Click **Save**.
+![](screenshot)
+1. Verify the confirmation message that the quote has been saved successfully.
+![](screenshot)
+#### 4. Respond to the Quote — accept or reject the quote after reviewing and updating the details.
+1. Click **Accept** or **Reject**.
+![](screenshot)
+1. Choose the option as required.
+![](screenshot)
+---
+## Quote Form Builder
+#### 1. Configure Quote Form — customize the Request Quote form shown to customers before they submit a quote request.
+1. Open **Apps → Select your APP → Quote Settings → Form Builder**.
+2. Edit the form heading and submit button text.
+3. Customize the button style.
+4. Choose which product details to display.
+5. Add or remove customer information fields.
+6. Save your changes.
+![](screenshot)
+#### 2. Configure Contact Fields — configure the customer information fields displayed in the Request Quote form.
+1. Scroll down to the **Form Builder**.
+2. Expand a contact field to edit its settings.
+3. Update the field label, placeholder, and help text if needed.
+4. Mark the field as **Required** or optional.
+5. Add new fields or remove existing ones.
+6. Save your changes.
+![](screenshot)
+> 💡 **Tip:** Only keep the fields you need to make the quote request process simple for your customers.
+---
+## Dashboard Overview
+#### The Dashboard provides a quick overview of your quote activity, recent requests, and key performance metrics.
+1. Open **Apps → Your APP**.
+2. The **Dashboard** opens automatically after launching the app.
+3. Review the setup guide to complete the initial configuration.
+4. Check the summary cards for:
+	- **Total Quotes**
+	- **This Month**
+	- **Accepted Quotes**
+	- **Revenue**
+5. View the **Recent Quotes** section to monitor incoming quote requests.
+6. Review **Top Requested Products** and the **Summary** panel for quick insights.
+![](screenshot)
+> 💡 **Tip:** Use the dashboard to monitor quote activity and quickly access recent customer requests.
+---
+## Email Notifications
+#### 1. Settings page — configure the email provider and manage notification templates.
+1. Open **Apps → Select your APP → Settings → Email Settings**.
+2. Choose your preferred email provider.
+3. Enter the admin notification email address.
+4. Click **Save**.
+5. Enable or edit the required email notifications.
+![](screenshot)
+> 💡 **Tip:** Enable only the notifications you want customers or administrators to receive.
+#### 2. Email Template — customize the content and appearance of each email notification.
+1. Open the email template you want to edit.
+2. Enable or disable the notification.
+3. Update the email subject and heading.
+4. Customize the email content and action button.
+5. Send a test email to verify the template.
+6. Save your changes.
+![](screenshot)
+> 💡 **Tip:** Use the preview panel to review your email before sending it to customers.
+---
+## Theme Extension
+**Navigate to:**
+1. **Shopify Admin → Online Store**
+![](screenshot)
+1. **Click Edit theme**
+![](screenshot)
+1. **Theme Editor → Hover the App Embeds icon**
+![](screenshot)
+1. **App Embeds panel opens → Enable FIDE – Theme App Extension and click Save**
+![](screenshot)
+> 💡 **Tip:** The app extension must be enabled for FIDE widgets to appear on your storefront.

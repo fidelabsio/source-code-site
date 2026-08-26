@@ -1,0 +1,142 @@
+<callout icon="👋" color="blue_bg">
+	How to build and run this app outside of local dev — local production build, staging, and production. This repo doesn't ship a specific hosting platform's config or a CI/CD workflow; deployment infrastructure is left to whoever is hosting the app. This guide covers what's the same regardless of host, using Fly.io (the host referenced in this repo's own shopify.app.toml / shopify.app.staging.toml) as a concrete example where useful.
+</callout>
+<callout icon="📖" color="blue_bg">
+	Read the **Installation Guide** and **Shopify Partner Setup Guide** first if you haven't already — this guide assumes the app already runs locally and is linked to a Partner app.
+</callout>
+---
+# 1. Build commands
+```shell
+npm run build
+```
+Runs `prebuild` (`scripts/sync-app-proxy-subpath.js`, keeps the App Proxy subpath in sync with the theme extension) and then `react-router build`, producing client + SSR bundles under `build/`.
+Serve the build with:
+```shell
+npm start
+```
+which runs `react-router-serve ./build/server/index.js`. Any host needs to run these two steps (build, then start) after installing dependencies.
+---
+# 2. Hosting requirements
+Whatever platform you deploy to needs:
+- A Node.js runtime matching the `engines` range in `package.json` (`>=20.19 <22` or `>=22.12`)
+- A public HTTPS URL (Shopify requires HTTPS for `application_url`, redirect URLs, and the App Proxy URL)
+- A reachable PostgreSQL database (managed or self-hosted)
+- The ability to set environment variables/secrets (see below)
+- Persistent process hosting (this is a long-running server, not a static site or serverless function — `react-router-serve` runs an Express-style Node server)
+---
+# 3. Local production build (smoke test before deploying)
+Useful to catch build-only issues before pushing to staging/production:
+```shell
+npm run build
+npm start
+```
+Point `SHOPIFY_APP_URL` at a tunnel or your local host if you want to test the embedded flow end-to-end; otherwise this is mainly a build sanity check.
+---
+# 4. Staging deployment
+This repo includes `shopify.app.staging.toml` as a second Partner-app config pointing at a staging app, distinct from the default `shopify.app.toml`.
+1. Point Shopify CLI at the staging config:
+```shell
+npm run config:use -- shopify.app.staging.toml
+```
+(or interactively via `shopify app config use`, which lists available `shopify.app*.toml` files to switch between)
+1. Set `application_url` and `[app_proxy].url` in the staging TOML to your staging host's HTTPS URL.
+2. On your staging host, set the environment variables listed below with staging-specific values (a separate `DATABASE_URL`, a staging `SHOPIFY_API_KEY`/`SHOPIFY_API_SECRET` from the staging Partner app, etc).
+3. Build and deploy the app code to your staging host, using your host's deployment method (e.g. `fly deploy` if using Fly.io).
+4. Push the staging app config/extension to Shopify:
+```shell
+npm run deploy
+```
+This registers webhooks, the App Proxy, and the theme app extension against whichever Partner app the currently-linked TOML points to.
+---
+# 5. Production deployment
+Same shape as staging, against `shopify.app.toml` and your production host:
+1. Ensure `npm run config:use` (or `config:link`) points at the production Partner app's config file.
+2. Set `application_url` / `[auth].redirect_urls` / `[app_proxy].url` to your production HTTPS URL.
+3. Set production environment variables on your host (below) — in particular `ENCRYPTION_KEY` and `NODE_ENV=production`, both required for the app to start in production.
+4. Deploy the built app to your production host.
+5. Run `npm run deploy` to push the app config/webhooks/extension to the production Partner app.
+---
+# 6. Environment variables
+All values from `.env.example` apply in every environment; set them as platform secrets/env vars rather than committing a `.env` file:
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Notes for deployment</td>
+</tr>
+<tr>
+<td>`SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET`</td>
+<td>Yes</td>
+<td>Must match the Partner app the environment's shopify.app*.toml is linked to</td>
+</tr>
+<tr>
+<td>`SCOPES`</td>
+<td>Yes</td>
+<td>Must match `access_scopes.scopes` in the same TOML</td>
+</tr>
+<tr>
+<td>`SHOPIFY_APP_URL`</td>
+<td>Yes</td>
+<td>Must exactly match `application_url` in the TOML for that environment</td>
+</tr>
+<tr>
+<td>`SHOP_CUSTOM_DOMAIN`</td>
+<td>No</td>
+<td>Only if serving from a custom domain</td>
+</tr>
+<tr>
+<td>`DATABASE_URL`</td>
+<td>Yes</td>
+<td>Use a separate database per environment — never point staging and production at the same one</td>
+</tr>
+<tr>
+<td>`ENCRYPTION_KEY`</td>
+<td>Required in production</td>
+<td>The app throws on startup in production if missing/too short. Generate a distinct key per environment; losing/rotating it invalidates existing encrypted SMTP passwords and outstanding PDF download links.</td>
+</tr>
+<tr>
+<td>`GMAIL_USER` / `GMAIL_APP_PASSWORD`</td>
+<td>No</td>
+<td>App-default sender; can differ per environment</td>
+</tr>
+<tr>
+<td>`CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`</td>
+<td>No</td>
+<td>Can be shared or per-environment depending on your Cloudinary setup</td>
+</tr>
+<tr>
+<td>`FRONTEND_PORT` / `PORT`</td>
+<td>No</td>
+<td>Usually left to the host's default port injection (e.g. Fly/Heroku set PORT automatically)</td>
+</tr>
+<tr>
+<td>`NODE_ENV`</td>
+<td>Implicit</td>
+<td>Set to `production` in staging/production so the `ENCRYPTION_KEY` check and other production behavior activate</td>
+</tr>
+</table>
+---
+# 7. Database migrations
+Run this against the target environment's database as part of every deploy, before starting the new app version:
+```shell
+npx prisma migrate deploy
+```
+(equivalent to the `migrate deploy` half of `npm run setup` — skip `prisma generate` in a deploy pipeline only if it's already run as part of your build step, e.g. via a `postinstall` hook on your host).
+<callout icon="⚠️" color="yellow_bg">
+	Never use `prisma migrate dev` against staging/production — it's for local schema iteration only and can prompt for destructive resets.
+</callout>
+- Migrations are additive and ordered by folder name under `prisma/migrations/`; deploying out of order isn't supported by Prisma.
+- Back up the target database before running migrations in production if the migration touches existing data.
+---
+# 8. Verification after deploy
+- [ ] App installs (or re-installs) successfully on a real store pointed at the new environment
+- [ ] Embedded admin loads without redirect loops or auth errors
+- [ ] `application_url`, `redirect_urls`, and `app_proxy.url` all resolve over HTTPS and match the deployed host
+- [ ] A test quote request from the storefront extension reaches the app (App Proxy working) and appears in the Quotes list
+- [ ] Outbound emails send successfully (test via Settings → Email or by accepting/rejecting a test quote)
+- [ ] `prisma migrate deploy` reports the database schema as up to date with no pending migrations
+- [ ] Webhooks are visible/registered against the correct app in the Partner Dashboard (Uninstalled, Scopes update, GDPR topics)
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Installation Guide**, **Shopify Partner Setup Guide**.
+</callout>

@@ -1,0 +1,418 @@
+## 1. About This Guide
+This guide covers moving an existing deployment from one release of the source code to a newer one, without losing data and without losing the customisations you have made.
+Read it end to end **before your first upgrade**, not during one. The single most common cause of a failed upgrade is starting the process without a restorable backup.
+**Who this is for:** anyone maintaining the Production Deployment licensed under your Commercial licence — whether that's your own team or an implementation partner working on your behalf.
+**What this guide does not cover:** upgrading Shopify's own platform APIs beyond what our releases require, your hosting provider's runtime upgrades, or changes you have written yourself. Those remain your responsibility.
+---
+## 2. Your Update Entitlement
+Before planning an upgrade, confirm you are entitled to the release you want. This section summarises the position in plain English; `LICENSE.md` is the binding document and prevails in any conflict. Fee figures below reflect this guide's last update — your renewal notice or invoice is authoritative if they differ.
+<table header-row="true">
+<tr>
+<td>Item</td>
+<td>Detail</td>
+</tr>
+<tr>
+<td>**Update & Support Term**</td>
+<td>12 months from your Issue Date</td>
+</tr>
+<tr>
+<td>**What it covers**</td>
+<td>Critical bug fixes, security patches, Shopify compatibility updates, and any new feature or minor releases we choose to issue</td>
+</tr>
+<tr>
+<td>**Renewal fee**</td>
+<td>USD 149 per year</td>
+</tr>
+<tr>
+<td>**Reinstatement after a lapse**</td>
+<td>USD 99 in addition to the renewal fee</td>
+</tr>
+<tr>
+<td>**Renewal invitation**</td>
+<td>At least 30 days before your term expires</td>
+</tr>
+<tr>
+<td>**Major new versions**</td>
+<td>May be offered separately and charged separately, at our discretion</td>
+</tr>
+<tr>
+<td>**If you don't renew**</td>
+<td>Your right to **run** every version delivered during your term is perpetual. You stop receiving new releases, patches, and support. Nothing switches off.</td>
+</tr>
+<tr>
+<td>**Tier and versions**</td>
+<td>Upgrading a version never changes your licence tier and never expands your deployment capacity. One Production Deployment stays one.</td>
+</tr>
+<tr>
+<td>**Redistribution**</td>
+<td>Unchanged by upgrading. You may never hand over, publish, or resell the source — including diffs and patch files.</td>
+</tr>
+</table>
+Five practical consequences:
+1. **A lapsed term is not a breach.** Non-payment of a renewal fee breaches nothing and terminates nothing. Your Production Deployment keeps running.
+2. **But compatibility is the real risk.** Shopify changes its platform and APIs on its own schedule. Compatibility updates are issued **only while your term is active** — after expiry we have no obligation to make the Software work with any Shopify change, whether announced before or after expiry. A version that falls out of compatibility may stop functioning correctly. This is the argument for renewing, and it is stronger than the feature argument.
+3. **Don't let a lapse run long.** Reinstatement costs USD 99 on top of the renewal fee. If your term has lapsed for **more than three months**, we may require you to purchase a current licence instead of renewing.
+4. **Download and archive releases while entitled.** You are responsible for retaining your own copy of every version delivered to you. We are not obliged to provide, restore, or archive access after your term expires. Before a term ends, pull the latest release you are entitled to and keep it.
+5. **Patch files are still source.** Sharing a diff with anyone outside your permitted personnel is redistribution. Contractors must be bound by confidentiality at least as protective as §13 of the Agreement before you send them the package or grant repository access — see §5 of the Agreement for who may receive the source.
+---
+## 3. Release Types and What They Mean for You
+Releases follow semantic versioning: `MAJOR.MINOR.PATCH`.
+<table header-row="true">
+<tr>
+<td>Release</td>
+<td>Example</td>
+<td>Contains</td>
+<td>Migrations</td>
+<td>Your effort</td>
+</tr>
+<tr>
+<td>**Patch**</td>
+<td>`1.4.2 → 1.4.3`</td>
+<td>Bug fixes, security patches. No API or schema changes.</td>
+<td>Rare, always additive</td>
+<td>30 min</td>
+</tr>
+<tr>
+<td>**Minor**</td>
+<td>`1.4.x → 1.5.0`</td>
+<td>New features, backwards-compatible.</td>
+<td>Usually, additive only</td>
+<td>1–3 hrs</td>
+</tr>
+<tr>
+<td>**Major**</td>
+<td>`1.x → 2.0.0`</td>
+<td>Breaking changes: schema restructuring, dependency jumps, changed integration points.</td>
+<td>Yes, may transform data</td>
+<td>1–3 days</td>
+</tr>
+</table>
+**Every release ships with an entry in `CHANGELOG.md`.** Major and minor entries include an *Upgrade Notes* section listing breaking changes, required manual steps, and any migration that touches existing data. Read it before you touch anything. If an upgrade note says a migration is destructive or irreversible, that phrase is load-bearing.
+**Security patches** are published against the current release line. If a security patch matters to you and you are behind, you may need to move up minor versions to receive it.
+---
+## 4. Compatibility Requirements
+Check these before upgrading. A release may raise a minimum version, and the app will fail at build or start time rather than run in an unsupported configuration.
+<table header-row="true">
+<tr>
+<td>Component</td>
+<td>Requirement</td>
+<td>Notes</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td>See `package.json` `engines` field for your target release</td>
+<td>Major releases may raise the minimum</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>See the release's Upgrade Notes</td>
+<td>Prisma requires a supported server version</td>
+</tr>
+<tr>
+<td>Prisma</td>
+<td>Pinned in `package.json` — do not upgrade independently</td>
+<td>Client and schema versions must match</td>
+</tr>
+<tr>
+<td>Shopify API version</td>
+<td>Declared in `shopify.app.toml`</td>
+<td>See below</td>
+</tr>
+<tr>
+<td>Shopify CLI</td>
+<td>Latest stable</td>
+<td>Required for `shopify app deploy`</td>
+</tr>
+<tr>
+<td>Node package manager</td>
+<td>npm — use the `package-lock.json` included in the release package</td>
+<td>Do not regenerate it; do not switch to yarn or pnpm</td>
+</tr>
+</table>
+**Shopify API versions deprecate on a schedule.** Shopify publishes a new API version quarterly and supports each one for a limited window (currently 12 months) before it stops responding. When a release moves the app to a newer API version, that upgrade is effectively mandatory on Shopify's timetable, not ours. Upgrade Notes will flag these clearly. Plan them; do not let the deadline arrive while you are several versions behind.
+**Do not upgrade dependencies independently of a release.** Bumping Prisma, the Shopify libraries, or Remix on your own puts you in a configuration we cannot support or reproduce.
+---
+## 5. Managing Your Customisations
+This is the part that determines whether upgrades stay easy or become painful. Decide your approach before your first customisation, not before your first upgrade.
+The source is delivered as a ZIP package, not as a shared repository, so there is no upstream remote to pull from. That makes your own version control the mechanism that keeps upgrades manageable. Set it up correctly once and every future upgrade becomes a merge you can reason about; skip it and every upgrade is a manual comparison of two folders.
+### 5.1 One-time setup: the vendor branch pattern
+Do this with the very first release you receive, **before you change anything**.
+```bash
+unzip fide-quote-v1.4.0.zip -d my-app
+cd my-app
+
+git init
+git add -A
+git commit -m "Vendor release v1.4.0 — untouched"
+git tag vendor-1.4.0
+
+git branch vendor          # pristine vendor line — never edit this branch
+git checkout -b my-app     # your working branch — all your changes live here
+```
+You now have two lines of history: `vendor`, which only ever contains our source exactly as shipped, and `my-app`, which contains our source plus your work.
+<callout icon="⚠️" color="yellow_bg">
+	**If the ZIP extracts into a nested folder,** move the contents up so that `package.json` sits at the repository root before you commit. A mismatched directory level makes every future merge look like a complete rewrite.
+</callout>
+**Commit the untouched release first.** This is the whole trick. A repository whose first commit already contains your modifications cannot tell you what you changed, which means Git cannot help you at upgrade time.
+### 5.2 Upgrading: load the new release onto the vendor branch
+When a new release ZIP arrives, put it on the `vendor` branch and merge that branch into yours.
+```bash
+# 1. Replace the vendor branch contents with the new release
+git checkout vendor
+git rm -rf .                                   # clears tracked files; .git and .env are untouched
+unzip -o ~/Downloads/fide-quote-v1.5.0.zip -d .
+git add -A
+git commit -m "Vendor release v1.5.0"
+git tag vendor-1.5.0
+
+# 2. Merge the new vendor release into your work
+git checkout my-app
+git checkout -b upgrade/v1.5.0                 # never merge straight onto your working branch
+git merge vendor
+# resolve conflicts, commit, test
+```
+Git now shows you precisely which of your changes collide with ours, file by file and line by line. Everything you did not touch merges silently. This is the difference between a two-hour upgrade and a two-day one.
+**Keep every release ZIP you download.** They are your only reference copies of pristine source. If your repository is ever lost or corrupted, the archived ZIPs let you rebuild the vendor line. Download links should not be treated as storage.
+### 5.3 Keep customisations where they survive
+<table header-row="true">
+<tr>
+<td>Practice</td>
+<td>Why</td>
+</tr>
+<tr>
+<td>Put branding in the designated branding and token files</td>
+<td>Those are designed to be overwritten predictably</td>
+</tr>
+<tr>
+<td>Add new files rather than editing existing ones where possible</td>
+<td>New files never conflict</td>
+</tr>
+<tr>
+<td>Extend the Prisma schema with your own models and nullable columns; don't alter ours</td>
+<td>Our migrations assume our tables</td>
+</tr>
+<tr>
+<td>Never edit anything inside /prisma/migrations</td>
+<td>Migration history must match ours exactly</td>
+</tr>
+<tr>
+<td>Keep a `CUSTOMISATIONS.md` listing every file you have modified and why</td>
+<td>The single highest-value habit for upgrade day</td>
+</tr>
+<tr>
+<td>Configure via environment variables rather than hardcoded edits</td>
+<td>Config changes survive every upgrade untouched</td>
+</tr>
+</table>
+**Schema warning.** If you have added columns to our tables, a major release that restructures those tables can conflict with your additions. Flag any schema modifications in your `CUSTOMISATIONS.md` and check them against the Upgrade Notes before a major upgrade.
+---
+## 6. Before You Upgrade — Backups
+Do not skip any of these. This is the section that makes the difference between an inconvenience and a data loss incident.
+- [ ] **Database backup taken and verified.** A backup you have not confirmed is a backup you do not have. Take a logical dump (`pg_dump`) *and* confirm your managed provider's point-in-time recovery window covers the upgrade.
+- [ ] **Test the restore.** For a major upgrade, restore the dump into a scratch database and confirm it comes back clean. For patches, verifying the backup exists and is non-empty is acceptable.
+- [ ] **Current release version recorded** — check the `VERSION` file (included at the repository root of every release ZIP, generated by our release process — treat it as authoritative and never hand-edit it), or your vendor tag with `git describe --tags vendor` — so you know precisely what to roll back to.
+- [ ] **Your current release ZIP archived and accessible.** If you need to rebuild from pristine source, this is what you rebuild from.
+- [ ] **Environment variables exported and stored** outside the deployment.
+- [ ] **Uncommitted work committed.** Upgrading with a dirty working tree loses changes to merge conflicts.
+- [ ] **Upgrade branch created** — `git checkout -b upgrade/v1.5.0`. Never upgrade directly on your production branch.
+- [ ] **`CHANGELOG.md` Upgrade Notes read** for every version between yours and the target, not just the target.
+- [ ] **Maintenance window scheduled** for minor and major upgrades. Merchants submitting quotes mid-migration is avoidable.
+- [ ] **Stakeholders informed** — your store team, and your implementation partner if one maintains the deployment — with the window and expected impact.
+---
+## 7. Standard Upgrade Procedure — Patch and Minor
+Perform every step on staging first. Only repeat against production once staging passes §9.
+1. **Confirm entitlement and download.** The target release must fall inside your update period (§2). Download the release ZIP and archive it alongside your earlier ones.
+2. **Read the Upgrade Notes** for every intervening version.
+3. **Take and verify backups** (§6).
+4. **Load the new release onto your vendor branch** (same steps as §5.2).
+```bash
+git checkout vendor
+git rm -rf .
+unzip -o ~/Downloads/fide-quote-v1.5.0.zip -d .
+git add -A && git commit -m "Vendor release v1.5.0"
+git tag vendor-1.5.0
+```
+5. **Create an upgrade branch and merge.**
+```bash
+git checkout my-app
+git checkout -b upgrade/v1.5.0
+git merge vendor
+```
+6. **Resolve conflicts.** Take our version for core application logic; keep yours for branding and configuration. When genuinely unsure, keep both behaviours and test — do not guess. Update `CUSTOMISATIONS.md` as you go.
+7. **Install dependencies using the release's lockfile.** Do not regenerate it, and do not run an unrestricted dependency update.
+8. **Apply database migrations against staging.**
+```bash
+npx prisma migrate status     # inspect what will run
+npx prisma migrate deploy     # apply
+```
+<callout icon="🚫" color="red_bg">
+	**Never run `prisma migrate reset` or `prisma db push` against a database with real data.** `reset` drops everything. `db push` can silently drop columns to force the schema to match. Both are development-only commands. In production, `migrate deploy` is the only correct command.
+</callout>
+9. **Apply manual steps** listed in the Upgrade Notes — new environment variables, new Shopify scopes, new webhook subscriptions, configuration changes.
+10. **Deploy the Shopify app configuration** if scopes, webhooks, or URLs changed. A scope change forces merchants to re-authorise; plan the communication.
+11. **Run the post-upgrade verification** (§9). All of it.
+12. **Promote to production** in the maintenance window: merge the upgrade branch, back up production again immediately beforehand, deploy, run `migrate deploy`, re-run verification.
+13. **Monitor** error rates and quote submission volume for 24–48 hours. A drop in submissions is the signal that matters most, and it will not raise an exception.
+---
+## 8. Major Version Upgrades
+Everything in §7 applies, plus:
+- **Budget days, not hours.** Assume conflicts in files you have customised heavily.
+- **Read the entire major release entry in `CHANGELOG.md`**, including sections that appear irrelevant.
+- **Build a full staging clone from a production data snapshot.** Migrations that transform existing data must be tested against realistic data, not an empty database. Row counts and edge-case records are exactly what break.
+- **Check your schema additions** against the new schema before running anything.
+- **Record migration duration on staging.** A migration that takes four minutes on a copy of production data determines your maintenance window. Measure it.
+- **Confirm your rollback route in advance** (§10) — some data transformations cannot be reversed by re-running an old build.
+- **Re-verify Shopify integration end to end**: install, OAuth, scopes, all three GDPR webhooks, and the theme extension on a real merchant theme.
+- **Upgrade sequentially through major versions.** Do not jump `1.x → 3.0` directly. Go `1.x → 2.x`, verify, then `2.x → 3.0`. Migrations are written to run in order and assume the previous major's end state.
+**Use your non-production capacity.** Your licence includes Non-Production Deployments (up to three, depending on your tier — see `LICENSE.md` or your order confirmation for your exact allowance) precisely so that a major upgrade can be rehearsed properly. Stage the upgrade on a development or staging environment with realistic data, prove it, then promote. Non-production environments don't consume your Production Deployment capacity.
+**If an implementation partner maintains your deployment,** agree in writing beforehand who performs upgrades and within what timeframe. Make sure they still have valid access under your confidentiality arrangements, and that you hold your own archived copy of every release ZIP rather than relying on theirs.
+---
+## 9. Post-Upgrade Verification
+Run all of it. An upgrade is not complete until every line passes.
+**Application**
+- [ ] Build succeeds with no errors
+- [ ] App starts with no startup or missing-variable errors
+- [ ] Embedded admin loads inside the Shopify iframe
+- [ ] Existing session persists; no forced reinstall for existing merchants
+**Data integrity**
+- [ ] `npx prisma migrate status` reports no pending migrations
+- [ ] Existing quote records are present and complete — spot-check records created before the upgrade
+- [ ] Row counts on key tables match pre-upgrade figures, allowing for legitimate new activity
+- [ ] App and merchant settings survived the upgrade
+- [ ] Any columns you added are intact
+**Functionality**
+- [ ] Hide price rules still apply on the storefront
+- [ ] Quote request form renders and validates
+- [ ] A new submission creates a record correctly
+- [ ] Notification email is delivered to the inbox — check it, don't assume it
+- [ ] Quote status changes persist
+- [ ] Theme extension renders correctly on the live theme, not just the default
+**Integration**
+- [ ] All three GDPR webhooks registered and returning `200`
+- [ ] OAuth completes cleanly on a fresh install
+- [ ] Scope changes, if any, reflected and re-authorisation flow tested
+- [ ] Error monitoring receiving events from the new version
+**Branding**
+- [ ] Search for `FIDE` / `fide-` returns zero user-visible results — new releases can introduce new strings that bypass your previous rebrand
+That last item is easy to forget and highly visible when missed. Add it to your standing upgrade routine.
+---
+## 10. Rollback
+**Code rollback is straightforward. Database rollback is not.** Understanding that asymmetry is the whole of this section.
+### If no migration ran
+Redeploy your last known-good commit. Done. Because you upgraded on a separate branch (§7 step 5), your working branch is untouched and this is a one-line operation.
+```bash
+git checkout my-app        # your pre-upgrade state
+# redeploy
+```
+### If an additive migration ran
+Additive migrations — new tables, new nullable columns — are usually forwards-compatible. The old build typically runs fine against the newer schema because it simply ignores what it doesn't know about. Redeploy the previous release and verify carefully.
+### If a destructive or transforming migration ran
+**Do not attempt to reverse it by hand, and do not roll the code back and hope.** Restore the database from your pre-upgrade backup or via point-in-time recovery, then redeploy the previous release.
+This is why §6 is not optional, and why you verify the restore before a major upgrade rather than after.
+### Data written after the upgrade
+Restoring a backup loses everything written since it was taken. Before restoring, export any records created post-upgrade so you can reconcile them manually. For a busy merchant this is a real cost — which is the argument for a maintenance window and a tested staging run.
+### Rollback decision rule
+> If the Upgrade Notes describe a migration as destructive, irreversible, or data-transforming, your only supported rollback is restore-from-backup. Confirm the backup is good **before** you start, not after.
+---
+## 11. Upgrading From an Old Release
+If you are several versions behind:
+1. **List every version between yours and the target** and read all their Upgrade Notes together. Manual steps accumulate — a required environment variable added in `1.3.0` still applies when you jump from `1.2` to `1.6`.
+2. **Move one minor version at a time** where practical, verifying between each. Slower, far easier to diagnose.
+3. **Never skip a major version** (§8).
+4. **Check compatibility floors.** Two years of releases may have raised Node and PostgreSQL minimums; you may need to upgrade infrastructure first.
+5. **Confirm entitlement.** If your update period lapsed at `1.4` and the current release is `1.9`, you need to renew before you can obtain `1.9`.
+For a very large gap, a clean install of the current release with a data migration is sometimes cheaper than a chain of merges. If your customisations are extensive, ask support to help assess which route is less risky.
+---
+## 12. Troubleshooting
+<table header-row="true">
+<tr>
+<td>Symptom</td>
+<td>Likely cause</td>
+<td>Action</td>
+</tr>
+<tr>
+<td>Build fails after merge</td>
+<td>Unresolved conflict markers, or dependency version mismatch</td>
+<td>Search the codebase for `<<<<<<<`; reinstall with the release lockfile</td>
+</tr>
+<tr>
+<td>App won't start</td>
+<td>New required environment variable</td>
+<td>Diff `.env.example` against your `.env`</td>
+</tr>
+<tr>
+<td>`migrate deploy` fails</td>
+<td>Schema drift from a manual DB change, or a conflicting column you added</td>
+<td>Run `migrate status`; do **not** run `reset`; contact support with the error</td>
+</tr>
+<tr>
+<td>Migration hangs</td>
+<td>Lock held by a running app instance</td>
+<td>Stop the app, run the migration, restart</td>
+</tr>
+<tr>
+<td>OAuth broken post-upgrade</td>
+<td>Scope change requiring re-authorisation, or a URL mismatch</td>
+<td>Compare `shopify.app.toml` against your Shopify app settings</td>
+</tr>
+<tr>
+<td>Admin iframe blank</td>
+<td>Cached assets, or a CSP header change</td>
+<td>Hard refresh; check response headers</td>
+</tr>
+<tr>
+<td>Emails stopped</td>
+<td>Changed template variables or mail configuration</td>
+<td>Check the Upgrade Notes for email changes; send a test</td>
+</tr>
+<tr>
+<td>Theme extension broken</td>
+<td>Extension version needs redeploying</td>
+<td>Redeploy the extension; check the merchant's theme for conflicts</td>
+</tr>
+<tr>
+<td>Branding partially reverted</td>
+<td>New release introduced new strings</td>
+<td>Re-run the branding pass; re-search for `FIDE`</td>
+</tr>
+</table>
+### Contacting support about an upgrade
+Email [support@fidelabs.io](mailto:support@fidelabs.io) — business hours GMT+5:30, target first response 2 business days.
+Include: your **Licence ID** and tier, the version you upgraded **from** and **to**, whether migrations ran and whether they completed, the exact error and log output, your hosting platform and Node version, whether a verified backup exists, and whether you are currently down in production.
+State clearly if production is affected — it changes how the request is triaged.
+<callout icon="⚠️" color="yellow_bg">
+	**Modifications are not supported.** If the failure only occurs in your modified code, support is limited to confirming whether the same defect exists in the unmodified source. This is exactly what your pristine `vendor` branch is for: check the release against it before you report, and say in your message whether the problem reproduces there. A report that already answers that question gets a useful reply first time.
+</callout>
+---
+## 13. Quick Reference
+Full explanations for each command are in §5.2 and §7 — this section is a bare-command cheat sheet, not a substitute for reading them first.
+```bash
+# 1. Check where you are
+cat VERSION
+npx prisma migrate status
+
+# 2. Back up — and verify the dump is non-empty
+pg_dump "$DATABASE_URL" > backup-$(date +%F-%H%M).sql
+ls -lh backup-*.sql
+
+# 3. Load the new release ZIP onto the vendor branch
+git checkout vendor
+git rm -rf .
+unzip -o ~/Downloads/fide-quote-v1.5.0.zip -d .
+git add -A && git commit -m "Vendor release v1.5.0"
+git tag vendor-1.5.0
+
+# 4. Merge into an upgrade branch
+git checkout my-app
+git checkout -b upgrade/v1.5.0
+git merge vendor
+
+# 5. Install with the packaged lockfile, then migrate
+npm ci
+npx prisma migrate deploy
+
+# 6. Verify against §9 before promoting to production
+```
+**Never in production:** `prisma migrate reset` · `prisma db push` · upgrading without a verified backup · merging straight onto your production branch.
+---
+*Document owner: FIDE Labs · Included in the product package · Companion to `ONBOARDING.md`, `QUICK-START-CHECKLIST.md`, and `LICENSE.md`*

@@ -1,0 +1,167 @@
+<callout icon="👋" color="blue_bg">
+	Step-by-step instructions to get the app running locally from a fresh clone. This covers the codebase only — for creating the Shopify Partner app it connects to, see the **Shopify Partner Setup Guide**. For staging/production, see the **Deployment Guide**.
+</callout>
+---
+# 1. System requirements
+<table header-row="true">
+<tr>
+<td>Requirement</td>
+<td>Version / notes</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td>>=20.19 <22 or >=22.12 (see `engines` in package.json)</td>
+</tr>
+<tr>
+<td>npm</td>
+<td>Ships with Node</td>
+</tr>
+<tr>
+<td>Shopify CLI</td>
+<td>Not a listed dependency — npm run dev/deploy/generate/config:link shell out to the `shopify` command, resolved by npm/npx on first use. No separate global install required.</td>
+</tr>
+<tr>
+<td>Shopify Partner account + dev store</td>
+<td>Needed before you can install/run the app in a real store — see the Shopify Partner Setup Guide</td>
+</tr>
+</table>
+<callout icon="⚠️" color="yellow_bg">
+	If your Node version doesn't satisfy the `engines` range, install one that does (e.g. via `nvm install 22`) before continuing — `npm install` will warn but not necessarily fail on a mismatched version.
+</callout>
+---
+# 2. Prerequisites checklist
+- [ ] Node version in range installed (`node -v`)
+- [ ] The project zip file (shared separately)
+- [ ] A hosted PostgreSQL connection string (`DATABASE_URL`) — ask for this if you don't have it yet; no local PostgreSQL install needed
+- [ ] A Shopify Partner account and a development store
+- [ ] Your Partner app's Client ID (from `shopify.app.toml` after linking, or the Partner Dashboard)
+---
+# 3. Get the project files
+1. **Download the project zip file** (shared separately — ask if you don't have a link/location for it).
+2. **Extract (unzip) it** to a folder you'll remember, e.g. `Documents/fide-request-quote-hide-price-source-code`.
+	- **Windows**: right-click the `.zip` → Extract All...
+	- **Mac**: double-click the `.zip` file
+3. **Open a terminal in the extracted folder** — every command in the next steps is run from this project's root folder (the one containing `package.json`, `app/`, `extensions/`, etc.).
+<callout icon="💡" color="blue_bg">
+	Extract the folder fully before opening it — don't open files directly from inside the `.zip`. Some tools let you browse a zip without extracting, which causes confusing errors later.
+</callout>
+---
+# 4. Install dependencies
+```shell
+npm install
+```
+This installs the root app's dependencies as well as the theme app extension under `extensions/quote-request/` (an npm workspace).
+---
+# 5. Connect the codebase to your Partner app
+```shell
+npm run config:link
+```
+Wraps `shopify app config link` — prompts you to log in to Shopify CLI and pick (or create) a Partner app. Writes that app's `client_id` into `shopify.app.toml`.
+<callout icon="🚫" color="red_bg">
+	Do not commit someone else's `client_id`. If you're setting up your own instance, either link your own Partner app or change the value yourself.
+</callout>
+---
+# 6. Configure environment variables
+Copy the example file and fill in your own values:
+```shell
+cp .env.example .env
+```
+<table header-row="true">
+<tr>
+<td>Variable</td>
+<td>Required</td>
+<td>Purpose</td>
+</tr>
+<tr>
+<td>`SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET`</td>
+<td>Yes</td>
+<td>Shopify app auth credentials from your Partner app</td>
+</tr>
+<tr>
+<td>`SCOPES`</td>
+<td>Yes</td>
+<td>Access scopes requested on install — keep in sync with `access_scopes.scopes` in shopify.app.toml</td>
+</tr>
+<tr>
+<td>`SHOPIFY_APP_URL`</td>
+<td>Yes</td>
+<td>Public base URL the app is served from (auth redirects, PDF download links)</td>
+</tr>
+<tr>
+<td>`SHOP_CUSTOM_DOMAIN`</td>
+<td>No</td>
+<td>Only if the embedded app is served from a custom domain</td>
+</tr>
+<tr>
+<td>`DATABASE_URL`</td>
+<td>Yes</td>
+<td>PostgreSQL connection string</td>
+</tr>
+<tr>
+<td>`ENCRYPTION_KEY`</td>
+<td>Yes in production</td>
+<td>32-byte hex key (64 hex chars) used to encrypt stored SMTP passwords and sign PDF download tokens. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. The app refuses to start in production without it.</td>
+</tr>
+<tr>
+<td>`GMAIL_USER` / `GMAIL_APP_PASSWORD`</td>
+<td>No</td>
+<td>App-default email sender (merchants can also configure their own SMTP per-shop in Settings)</td>
+</tr>
+<tr>
+<td>`CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`</td>
+<td>No</td>
+<td>Image uploads (PDF/company logo)</td>
+</tr>
+<tr>
+<td>`FRONTEND_PORT` / `PORT`</td>
+<td>No</td>
+<td>Override local dev server ports</td>
+</tr>
+</table>
+<callout icon="💡" color="blue_bg">
+	Rebranding the app's display name, logo, colors, etc. is **not** done via environment variables — see `app/config/*.json` and the "Rebranding a new instance" section of the root README.md.
+</callout>
+---
+# 7. Set up the database
+<callout icon="📖" color="blue_bg">
+	Don't have a `DATABASE_URL` yet? See the **Database Setup Guide (Prisma Postgres)** for how to create one — no local PostgreSQL install needed.
+</callout>
+```shell
+npm run setup
+```
+Runs `prisma generate && prisma migrate deploy` — generates the Prisma client and applies every migration under `prisma/migrations/` to the database at `DATABASE_URL`. Re-run any time you pull new migrations.
+---
+# 8. Run the application
+```shell
+npm run dev
+```
+Starts the Shopify CLI dev tunnel and the Vite dev server together. Press `p` in the terminal to open the app URL and install it on your connected development store.
+---
+# 9. Verify the installation
+- [ ] `npm run dev` starts without errors and prints a tunnel URL
+- [ ] The app installs successfully on your dev store when prompted
+- [ ] The embedded admin UI loads inside Shopify admin (no blank iframe / auth loop)
+- [ ] The Dashboard page renders with no console errors
+- [ ] Submitting a test quote request from the storefront extension creates a row visible in the Quotes list
+- [ ] `npm run lint` and `npm run typecheck` both pass on the untouched checkout
+---
+# 10. Common installation errors
+<callout icon="❌" color="red_bg">
+	**`The table 'main.Session' does not exist in the current database.`** — The database hasn't been migrated yet. Run `npm run setup`.
+</callout>
+<callout icon="❌" color="red_bg">
+	**`ENCRYPTION_KEY` missing or too short (production only)** — Generate a 32-byte hex key as shown in step 6 and set it in your environment.
+</callout>
+<callout icon="❌" color="red_bg">
+	**`"nbf" claim timestamp check failed`** — The JWT token appears expired — almost always a clock-sync issue. Enable "Set time and date automatically" in your OS settings.
+</callout>
+<callout icon="❌" color="red_bg">
+	**Embedded app redirects/breaks inside the Shopify admin iframe** — A code-level gotcha, not an install issue, but the most common one right after first install — see "Gotchas / Troubleshooting" in the root README.md.
+</callout>
+<callout icon="❌" color="red_bg">
+	**`npm install` succeeds but `shopify app dev` can't find a Partner app** — You haven't run `npm run config:link` yet (step 5), or you're logged into the wrong Partner organization in Shopify CLI.
+</callout>
+---
+<callout icon="📖" color="blue_bg">
+	Related documentation: **Shopify Partner Setup Guide**, **Deployment Guide**, and the project's root README.md (folder structure, useful commands, rebranding).
+</callout>

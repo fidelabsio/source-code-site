@@ -73,7 +73,7 @@ export default function RootLayout({
   function kill(){
     d.setAttribute('data-fl-done','1');
     var n=document.getElementById('fl-loader');
-    if(n&&n.parentNode)n.parentNode.removeChild(n);
+    if(n)n.style.display='none';
     unlock();
   }
   function done(){
@@ -114,6 +114,7 @@ export default function RootLayout({
           id="fl-loader"
           role="status"
           aria-live="polite"
+          suppressHydrationWarning
           style={{
             position: "fixed",
             inset: 0,
