@@ -35,6 +35,19 @@ function verifyHmac(rawBody: string, hmacHeader: string | null) {
   const provided = Buffer.from(hmacHeader, "base64");
 
   const match = digest.length === provided.length && timingSafeEqual(digest, provided);
+
+  if (!match) {
+    console.log("[webhook debug] hmac mismatch", {
+      secretLength: WEBHOOK_SECRET.length,
+      secretFirst4: WEBHOOK_SECRET.slice(0, 4),
+      secretLast4: WEBHOOK_SECRET.slice(-4),
+      secretHasWhitespace: /\s/.test(WEBHOOK_SECRET),
+      computedDigestBase64: digest.toString("base64"),
+      providedHeader: hmacHeader,
+      rawBodyLength: rawBody.length,
+    });
+  }
+
   return match;
 }
 
