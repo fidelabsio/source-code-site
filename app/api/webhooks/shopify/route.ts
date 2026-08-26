@@ -120,17 +120,10 @@ export async function POST(request: NextRequest) {
 
   // orders/paid can redeliver — claim the send atomically so a redelivery
   // (or a race between two concurrent deliveries) can't send the email twice.
-  const claimed = await prisma.license.updateMany({
+  await prisma.license.updateMany({
     where: { orderGid: paidOrder.orderGid, emailSentAt: null },
     data: { emailSentAt: new Date() },
   });
-
-  if (claimed.count === 0) {
-    console.log("[order paid] email already sent (or in flight) for this order, skipping", {
-      orderGid: paidOrder.orderGid,
-    });
-    return NextResponse.json({ received: true });
-  }
 
     const licenseType = paidOrder.isRenewal ? "License Renewal" : "Commercial License";
 
