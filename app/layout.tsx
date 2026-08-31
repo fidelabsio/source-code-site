@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-const SITE_URL = "https://fidelabs.io";
+const SITE_URL = "https://fidecode.com";
 const SITE_NAME = "Fide Labs";
 const SITE_DESCRIPTION =
   "Launch your own Shopify app or deliver white-label solutions from one production-ready codebase — complete source code, documentation, and a commercial license.";

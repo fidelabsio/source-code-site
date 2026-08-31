@@ -57,7 +57,7 @@ const NAVY_GRADIENT = "linear-gradient(180deg, #284688 0%, #001c58 74.27%)";
 const FONT_STACK = "'Inter', Helvetica, Arial, sans-serif";
 const DISPLAY_STACK = "'Manrope', Helvetica, Arial, sans-serif";
 
-const DEFAULT_ASSET_BASE_URL = "https://fidelabs.io/email-assets";
+const DEFAULT_ASSET_BASE_URL = "https://fidecode.com/email-assets";
 
 export interface SourceCodeDeliveryEmailProps {
   customerName: string;
@@ -168,7 +168,7 @@ export const SourceCodeDeliveryEmail = ({
         <Container style={{ width: "600px", maxWidth: "600px", margin: "0 auto", backgroundColor: PAGE }}>
           {/* ================= HEADER ================= */}
           <Section style={{ padding: "24px 24px 0" }}>
-            <Link href="https://fidelabs.io">
+            <Link href="https://fidecode.com">
               <Img src={asset("logo-header.png")} alt="Fide Labs" width="150" height="40" style={{ display: "block", border: 0 }} />
             </Link>
           </Section>
@@ -600,7 +600,7 @@ export const SourceCodeDeliveryEmail = ({
                                 <tr>
                                   <td style={{ border: `2px solid ${GREEN}`, borderRadius: "8px", padding: "12px 16px" }}>
                                     <Link
-                                      href="https://fidelabs.io/contact"
+                                      href="https://fidecode.com/contact"
                                       style={{ fontFamily: FONT_STACK, fontSize: "14px", fontWeight: 600, lineHeight: "16px", color: GREEN, textDecoration: "none", whiteSpace: "nowrap" }}
                                     >
                                       <span style={{ verticalAlign: "middle", color: GREEN }}>Contact Technical Support</span>

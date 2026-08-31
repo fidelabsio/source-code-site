@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://fidelabs.io";
+const SITE_URL = "https://fidecode.com";
 
 export default function robots(): MetadataRoute.Robots {
   return {

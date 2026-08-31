@@ -9,7 +9,7 @@ const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL;
 
 const RESEND_LICENSE_API_KEY = process.env.RESEND_LICENSE_API_KEY;
 const RESEND_LICENSE_FROM_EMAIL = process.env.RESEND_LICENSE_FROM_EMAIL;
-const EMAIL_ASSET_BASE_URL = process.env.EMAIL_ASSET_BASE_URL || "https://fidelabs.io/email-assets";
+const EMAIL_ASSET_BASE_URL = process.env.EMAIL_ASSET_BASE_URL || "https://fidecode.com/email-assets";
 
 // Not tracked per-order anywhere yet — configurable via env so they can be
 // updated without a code change once real data exists.
