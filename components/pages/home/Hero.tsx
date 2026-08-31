@@ -53,7 +53,7 @@ export default function Hero() {
           <p style={{ fontSize: "16px", lineHeight: "1.6", color: "rgb(75, 85, 99)", margin: "0px 0px 32px", maxWidth: "420px" }}>
             Launch your own Shopify app or deliver white-label solutions — everything starts with one production-ready codebase.
           </p>
-          <div style={{ display: "flex", gap: "24px", marginBottom: "40px", flexWrap: "nowrap", alignItems: "center" }}>
+          <div data-hero-highlights="1" style={{ display: "flex", gap: "24px", marginBottom: "40px", flexWrap: "nowrap", alignItems: "center" }}>
             {HIGHLIGHTS.map((h) => (
               <div key={h.label} style={{ display: "flex", alignItems: "center", gap: "10px", flex: "1 1 0%", minWidth: "0px" }}>
                 <IconTile size={36} radius={10}>

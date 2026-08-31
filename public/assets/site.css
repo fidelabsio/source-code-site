@@ -255,6 +255,13 @@ header img { height: 38px !important; }
   [style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
 [style*="repeat(3,minmax(0,1fr))"],
   [style*="repeat(2,minmax(0,1fr))"] { grid-template-columns: minmax(0, 1fr) !important; }
+
+  /* hero highlight row (Reusable Codebase / White-Label Ready / Developer
+     Documentation) squeezes all three into one nowrap row on narrow
+     viewports, compressing icons and mis-wrapping the longest label —
+     stack them instead so each keeps its intended icon/text alignment. */
+  [data-hero-highlights] { flex-direction: column !important; align-items: flex-start !important; gap: 14px !important; }
+[data-hero-highlights] > div { flex: 0 0 auto !important; width: 100% !important; min-width: 0 !important; }
 table { font-size: 12.5px !important; }
 pre { font-size: 12px !important; }
 }
