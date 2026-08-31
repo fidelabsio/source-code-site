@@ -69,7 +69,7 @@ export default function Header() {
         <a href="/" style={{ flex: "0 0 auto", display: "flex", alignItems: "center", height: "44px", lineHeight: "0" }}>
           <img src="/assets/404-asset-1.png" alt="FIDELabs" style={{ display: "block", height: "47px", width: "auto", margin: "-1.5px 0px" }} />
         </a>
-        <nav style={{ display: "flex", alignItems: "center", gap: "clamp(13px, 2.1vw, 36px)", minWidth: "0px", flexWrap: "nowrap" }}>
+        <nav data-desktop-nav="1" style={{ display: "flex", alignItems: "center", gap: "clamp(13px, 2.1vw, 36px)", minWidth: "0px", flexWrap: "nowrap" }}>
           {NAV_LINKS.map((link) => (
             <NavLink key={link.href} {...link} />
           ))}

@@ -134,7 +134,8 @@ img, video, svg, table, pre { max-width: 100%; }
 
 /* ---------- tablet + mobile: hamburger replaces the nav ---------- */
 @media (max-width: 1000px) {
-  header nav,
+  [data-desktop-nav],
+  header > div > a[href="/checkout"],
   header > div > a[href$="Checkout.dc.html"],
   header > div > a[href$="checkout.html"] { display: none !important; }
 .fl-burger {
