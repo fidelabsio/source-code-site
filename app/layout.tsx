@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import JsonLd from "@/components/seo/JsonLd";
 
 const SITE_URL = "https://fidecode.com";
 const SITE_NAME = "Fide Labs";
@@ -48,6 +49,12 @@ const organizationJsonLd = {
   name: SITE_NAME,
   url: SITE_URL,
   description: SITE_DESCRIPTION,
+  logo: `${SITE_URL}/assets/404-asset-1.png`,
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "support@fidelabs.io",
+    contactType: "customer support",
+  },
 };
 
 export default function RootLayout({
@@ -59,10 +66,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="/assets/site.css" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-        />
+        <JsonLd data={organizationJsonLd} />
         <script
           dangerouslySetInnerHTML={{
             __html: `

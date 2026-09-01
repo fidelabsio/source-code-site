@@ -18,9 +18,9 @@ export default function NumberedProcessStep({
         </span>
         <span style={{ height: "1px", flex: "1 1 0%", background: "rgb(229, 231, 235)" }} />
       </div>
-      <h4 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: "18px", fontWeight: "700", margin: "0px 0px 8px", color: "rgb(13, 21, 38)", overflowWrap: "anywhere" }}>
+      <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: "18px", fontWeight: "700", margin: "0px 0px 8px", color: "rgb(13, 21, 38)", overflowWrap: "anywhere" }}>
         <span className="sc-interp">{title}</span>
-      </h4>
+      </h3>
       <p style={{ fontSize: "14px", lineHeight: "1.6", color: "rgb(107, 114, 128)", margin: "0px" }}>
         <span className="sc-interp">{description}</span>
       </p>

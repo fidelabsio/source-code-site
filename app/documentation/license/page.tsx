@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DocLicensePage from "@/components/pages/documentation/DocLicensePage";
+import BreadcrumbJsonLd from "@/components/seo/BreadcrumbJsonLd";
 
 export const metadata: Metadata = {
   title: "License",
@@ -10,5 +11,16 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <DocLicensePage />;
+  return (
+    <>
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Documentation", path: "/documentation" },
+          { name: "License", path: "/documentation/license" },
+        ]}
+      />
+      <DocLicensePage />
+    </>
+  );
 }

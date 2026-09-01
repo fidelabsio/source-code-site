@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import QuickStartChecklistPage from "@/components/pages/documentation/QuickStartChecklistPage";
+import BreadcrumbJsonLd from "@/components/seo/BreadcrumbJsonLd";
 
 export const metadata: Metadata = {
   title: "Quick Start Checklist",
@@ -10,5 +11,16 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <QuickStartChecklistPage />;
+  return (
+    <>
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Documentation", path: "/documentation" },
+          { name: "Quick Start Checklist", path: "/documentation/quick-start-checklist" },
+        ]}
+      />
+      <QuickStartChecklistPage />
+    </>
+  );
 }

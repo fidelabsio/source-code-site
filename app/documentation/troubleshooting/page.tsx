@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import TroubleshootingPage from "@/components/pages/documentation/TroubleshootingPage";
+import BreadcrumbJsonLd from "@/components/seo/BreadcrumbJsonLd";
 
 export const metadata: Metadata = {
   title: "Troubleshooting Guide",
@@ -10,5 +11,16 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <TroubleshootingPage />;
+  return (
+    <>
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Documentation", path: "/documentation" },
+          { name: "Troubleshooting Guide", path: "/documentation/troubleshooting" },
+        ]}
+      />
+      <TroubleshootingPage />
+    </>
+  );
 }

@@ -104,9 +104,9 @@ export default function PricingSection() {
             </div>
           </div>
           <div style={{ padding: "44px", background: "rgb(255, 255, 255)" }}>
-            <h4 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: "16px", fontWeight: "700", margin: "0px 0px 20px", color: "rgb(13, 21, 38)" }}>
+            <h3 style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontSize: "16px", fontWeight: "700", margin: "0px 0px 20px", color: "rgb(13, 21, 38)" }}>
               <span className="sc-interp">{content.receiveHeading}</span>
-            </h4>
+            </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 20px" }}>
               {RECEIVE_LIST.map((text, i) => (
                 <ReceiveListRow key={`${text}-${i}`} text={text} tone="light" />

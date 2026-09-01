@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DocumentationPage from "@/components/pages/DocumentationPage";
+import BreadcrumbJsonLd from "@/components/seo/BreadcrumbJsonLd";
 
 export const metadata: Metadata = {
   title: "Documentation",
@@ -10,5 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <DocumentationPage />;
+  return (
+    <>
+      <BreadcrumbJsonLd items={[{ name: "Home", path: "/" }, { name: "Documentation", path: "/documentation" }]} />
+      <DocumentationPage />
+    </>
+  );
 }
