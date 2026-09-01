@@ -93,7 +93,7 @@ export default function PricingSection() {
                   {content.noteText}
                 </span>
               </p>
-              <a href="/checkout" className="fl-ix-scpd fl-ix-scp5" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "16px 32px", borderRadius: "999px", background: "rgb(255, 255, 255)", color: "rgb(13, 21, 38)", fontSize: "16px", fontWeight: "600", transition: "transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s" }}>
+              <a href={content.ctaHref} className="fl-ix-scpd fl-ix-scp5" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "16px 32px", borderRadius: "999px", background: "rgb(255, 255, 255)", color: "rgb(13, 21, 38)", fontSize: "16px", fontWeight: "600", transition: "transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s" }}>
                 <span className="sc-interp">{content.ctaText}</span>
                 {" "}
                 <span>→</span>

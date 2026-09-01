@@ -9,6 +9,7 @@ const CONTENT = {
     priceUnit: "One-time Purchase",
     kicker: "Perpetual Commercial License",
     ctaText: "Buy Source Code",
+    ctaHref: "/checkout",
     footText: "Instant secure download after approval",
     noteText:
       "Purchase once and own a perpetual Commercial License. Optional annual renewal is available only for continuing updates and technical support.",
@@ -20,7 +21,8 @@ const CONTENT = {
     priceAmount: "149",
     priceUnit: "/ year",
     kicker: "Optional Update & Support Renewal",
-    ctaText: "Renew Updates & Support",
+    ctaText: "Contact Support to Renew",
+    ctaHref: "/contact",
     footText: "Renewal is optional — your licence stays perpetual",
     noteText:
       "Available after your included 12 months of updates and support. Renewal extends updates and standard technical support only. Your perpetual Commercial License remains valid even if you choose not to renew.",
